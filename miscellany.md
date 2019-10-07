@@ -1,0 +1,34 @@
+---
+layout: page
+title: Miscellaneous
+permalink: /miscellany/
+---
+
+
+<h2><a name="awards"></a>Honors and Awards</h2>
+<ul>
+    <li style="line-height:25px">Huawei Scholarship. 2018</li>
+    <li style="line-height:25px">Postgraduate Academic Scholarship. 2017-2020</li>
+    <li style="line-height:25px">Meritorious Winner of The Interdisciplinary Contest in Modeling. 2017</li>
+    <li style="line-height:25px">Excellent Graduation Project (5%) of Southeast University. 2017</li>
+    <li style="line-height:25px">Gold award of "Challenge Cup" National College Student Business Plan Competition. 2016</li>
+
+</ul>
+
+
+<h2><a name="teach"></a>Teaching Assistant and Supervisions</h2>
+<ul>
+    <li><p>
+        Undergraduate Thesis Co-Supervision (Oct. 2018 - Jun. 2019)<br>
+        Machine Translation Based on Sentence Classification And Multi-Neural-Models, SJTU.<br> 
+    </p></li>
+    <li><p>
+        Teaching Assistant (Jan. 2019 - Jun. 2019)<br>
+        Information security experimental lessons, SJTU.<br>
+    </p></li>
+    <li><p>
+        Teaching Assistant (Jan. 2018 - Jun. 2018)<br>
+        Information security experimental lessons, SJTU.<br>
+    </p></li>
+
+</ul>
