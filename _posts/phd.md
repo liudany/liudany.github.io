@@ -114,7 +114,7 @@ ITN又分为三个，European Training Networks (ETN)，European Industrial Doct
 
 
 
-标准：
+你在后面肯定会混乱，到时候一定记得自己的标准：
 
 1. 学术氛围好，实验室有顶会的氛围。
 2. 给钱够，不用担心生活。
