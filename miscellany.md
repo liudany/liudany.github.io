@@ -7,6 +7,7 @@ permalink: /miscellany/
 
 <h2><a name="awards"></a>Honors and Awards</h2>
 <ul>
+    <li style="line-height:25px">Kwang-Hua Scholarship. 2019</li>
     <li style="line-height:25px">Huawei Scholarship. 2018</li>
     <li style="line-height:25px">Postgraduate Academic Scholarship. 2017-2020</li>
     <li style="line-height:25px">Meritorious Winner of The Interdisciplinary Contest in Modeling. 2017</li>

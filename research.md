@@ -24,29 +24,29 @@ title: Publications
 	<li>
 		<b>A Character-Centric Neural Model for Automated Story Generation</b><br>
 		<i><b>Danyang Liu</b>, Juntao Li, Meng-Hsuan Yu, Dongyan Zhao, Rui Yan</i><br>
-		AAAI Conference on Artificial Intelligence 2020, New York, USA.<br>
+		Thirty-Fourth AAAI Conference on Artificial Intelligence (AAAI 2020), New York, USA.<br>
 		<a href="character-aaai2020.pdf"><div class="color-button">pdf</div></a>
 	</li><br>
 	<li>
 		<b>Draft and Edit: Automatic Storytelling Through Multi-Pass Hierarchical Conditional Variational Autoencoder</b><br>
 		<i>Meng-Hsuan Yu, Juntao Li, <b>Danyang Liu</b>, Dongyan Zhao, Rui Yan</i><br>
-		AAAI Conference on Artificial Intelligence 2020, New York, USA.<br>
+		Thirty-Fourth AAAI Conference on Artificial Intelligence (AAAI 2020), New York, USA.<br>
 	</li><br>
 	<li>
 		<b>A Transformer-Based Variational Auto Encoder for Sentence Generation</b><br>
 		<i><b>Danyang Liu</b> and Gongshen Liu</i><br>
-		International Joint Conference on Neural Networks (IJCNN), Budapest, Hungary.<br>
+		International Joint Conference on Neural Networks (IJCNN 2019), Budapest, Hungary.<br>
 		<a href="N-19705.pdf"><div class="color-button">pdf</div></a>
 	</li><br>
-	<li>
+<!-- 	<li>
 		<b>AUG-BERT: An Efficient Data Augmentation Algorithm for Text Classification</b><br>
 		<i>Linqing Shi, <b>Danyang Liu</b>, Gongshen Liu and Kui Meng</i><br>
 		International Conference on Communications, Signal Processing, and Systems (CSPS), Urumqi, China.<br>
-	</li><br>
+	</li><br> -->
 	<li>
 		<b>Benchmark Snapshots for Testing Social Network Evolving Algorithms</b><br>
 		<i><b>Danyang Liu</b>, Gongshen Liu and Kui Meng</i><br>
-		International Conference on Identification, Information and Knowledge in the Internet of Things (IIKI), Peking, China.<br>
+		International Conference on Identification, Information and Knowledge in the Internet of Things (IIKI 2018), Peking, China.<br>
 		<a href="https://www.sciencedirect.com/science/article/pii/S1877050919302625?via%3Dihub"><div class="color-button">pdf</div></a><a href="https://github.com/liudany/iv-network"><div class="color-button">code</div></a>
 	</li><br>
 </ul>
