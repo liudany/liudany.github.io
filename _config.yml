@@ -5,8 +5,8 @@ general_email: danyliu@sjtu.edu.cn
 description: > # this means to ignore newlines until "baseurl:"
    Final-year postgraduate student in School of Cyber Science and Engineering, SJTU. Passionate about research in Natural Language Processing.
 
-# baseurl: "/" # the subpath of your site, e.g. /blog/
-baseurl: "/academic-portfolio-master/" # the subpath of your site, e.g. /blog/
+baseurl: "/" # the subpath of your site, e.g. /blog/
+# baseurl: "/academic-portfolio-master/" # the subpath of your site, e.g. /blog/
 
 url: "https://dyliu.me" # the base hostname & protocol for your site
 
