@@ -1,0 +1,280 @@
+I"'{<p>A reading notes of fairseq <a href="https://fairseq.readthedocs.io/en/latest/">document</a> and <a href="https://github.com/pytorch/fairseq">github page</a>.</p>
+
+<h1 id="overview">Overview</h1>
+
+<h2 id="command-line">Command-Line</h2>
+
+<p>流程分为以下几步：</p>
+
+<ol>
+  <li><code class="highlighter-rouge">fairseq-preprocess</code>来预处理数据，用来建立词表，并生成训练使用的二进制数据。</li>
+  <li><code class="highlighter-rouge">fairseq-train</code>来训练模型，默认使用全部GPU，使用<code class="highlighter-rouge">CUDA_VISIBLE_DEVICES</code>来调整程序可见的GPU数目，⚠️注意batch_size的设定是根据tokens来的，参数<code class="highlighter-rouge">max-tokens</code>用于指定batch中最大token数。</li>
+  <li>训练完后，用<code class="highlighter-rouge">fairseq-generate</code>在二进制数据上进行测试，raw text则需要使用<code class="highlighter-rouge">fairseq-interactive</code>。其中继承了beam-search的方法。</li>
+</ol>
+
+<h2 id="extend">Extend</h2>
+
+<p>除了使用现成的模型和任务之外，还可以自己扩展五种类型：</p>
+
+<ul>
+  <li>Models用于定义模型的结构，包括所有需要训练的参数。</li>
+  <li>Criterion来定义新的loss计算方法，根据target和output来算。</li>
+  <li>⚠️Tasks用于保存词表，提供dataset的读取和迭代方法，初始化Model和Criterion并计算Loss。像个框架。</li>
+  <li>Optimizer指定如何更新模型中的参数。</li>
+  <li>Learning Rate Schedulers定义了训练过程中学习率的变化。</li>
+</ul>
+
+<p>整个的高层工作流程为：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
+    <span class="n">itr</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">get_batch_iterator</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">dataset</span><span class="p">(</span><span class="s">'train'</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">num_updates</span><span class="p">,</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">itr</span><span class="p">):</span>
+        <span class="n">task</span><span class="o">.</span><span class="n">train_step</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">criterion</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span> <span class="c1"># 包括了backward()
+</span>        <span class="n">average_and_clip_gradients</span><span class="p">()</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="n">lr_scheduler</span><span class="o">.</span><span class="n">step_update</span><span class="p">(</span><span class="n">num_updates</span><span class="p">)</span>
+    <span class="n">lr_scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="register">Register</h2>
+
+<p>新模块只有经过注册以后才能在命令行中使用，方法如下：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">@</span><span class="n">register_model</span><span class="p">(</span><span class="s">'my_lstm'</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">MyLSTM</span><span class="p">(</span><span class="n">FairseqModel</span><span class="p">):</span>
+    <span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>自己写的模块也可以保存在自己的路径下面（而非框架默认的fairseq/model下），这种时候在命令行中就要使用<code class="highlighter-rouge">--user-dir</code>参数指定custom文件夹，</p>
+
+<h1 id="一个例子">一个例子</h1>
+
+<p>做一个LSTM encoder-decoder模型。</p>
+
+<h2 id="encoderdecoder">Encoder/Decoder</h2>
+
+<p>这两部分继承<code class="highlighter-rouge">FairseqEncoder/Decoder</code>，基类本身也是继承自<code class="highlighter-rouge">nn.Module</code>，只是普通的两个PyTorch模块。</p>
+
+<p>注意到在init中这俩模块都传入了dictionary参数，并<code class="highlighter-rouge">super().__init__(dictionary)</code>了一下。是为了获取词表长度，pad字符等信息。</p>
+
+<h2 id="register-the-model">Register the Model</h2>
+
+<p>通过<code class="highlighter-rouge">@register_model('new_model')</code>的装饰方法注册新模型，只有register的model才可以用命令行直接调用。</p>
+
+<p>所有Model都必须实现<code class="highlighter-rouge">BasicFairseqModel</code>的所有接口，对于Seq2seq任务我们可以继承<code class="highlighter-rouge">FairseqModel</code>，因为它继承了Basic并默认了encoder-decoder结构。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">fairseq.models</span> <span class="kn">import</span> <span class="n">FairseqModel</span><span class="p">,</span> <span class="n">register_model</span>
+
+<span class="o">@</span><span class="n">register_model</span><span class="p">(</span><span class="s">'simple_lstm'</span><span class="p">)</span>	<span class="c1"># 必须在Model类前加装饰
+</span><span class="k">class</span> <span class="nc">SimpleLSTMModel</span><span class="p">(</span><span class="n">FairseqModel</span><span class="p">):</span>
+  
+    <span class="o">@</span><span class="nb">staticmethod</span>
+    <span class="k">def</span> <span class="nf">add_args</span><span class="p">(</span><span class="n">parser</span><span class="p">):</span>	<span class="c1"># 重写这个Basic类中的接口，添加命令行参数
+</span>        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s">'--encoder-embed-dim'</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s">'N'</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s">'dimensionality of the encoder embeddings'</span><span class="p">,</span>
+        <span class="p">)</span>
+        
+    <span class="o">@</span><span class="nb">classmethod</span>
+    <span class="k">def</span> <span class="nf">build_model</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>	<span class="c1"># 用于初始化模型，是classmethod
+</span>        <span class="n">encoder</span> <span class="o">=</span> <span class="n">SimpleLSTMEncoder</span><span class="p">()</span>	<span class="c1"># 省略参数
+</span>        <span class="n">decoder</span> <span class="o">=</span> <span class="n">SimpleLSTMDecoder</span><span class="p">()</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">SimpleLSTMModel</span><span class="p">(</span><span class="n">encoder</span><span class="p">,</span> <span class="n">decoder</span><span class="p">)</span>	<span class="c1"># 这里用了SimpleLSTMModel类本身
+</span>        
+        <span class="k">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">model</span>	<span class="c1"># 必须返回模型，model在build_model中定义
+</span>      
+    <span class="c1"># 可重写初始化，这里FairseqModel默认的encoder-decoder结构
+</span>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">encoder</span><span class="p">,</span> <span class="n">decoder</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span> <span class="o">=</span> <span class="n">encoder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">decoder</span> <span class="o">=</span> <span class="n">decoder</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoder</span><span class="p">,</span> <span class="n">FairseqEncoder</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">decoder</span><span class="p">,</span> <span class="n">FairseqDecoder</span><span class="p">)</span>
+      
+    <span class="c1"># 可重写forward方法来决定encoder和decoder交互细节，下面是FairseqModel中default的做法
+</span>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src_tokens</span><span class="p">,</span> <span class="n">src_lengths</span><span class="p">,</span> <span class="n">prev_output_tokens</span><span class="p">):</span>
+        <span class="n">encoder_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span><span class="p">(</span><span class="n">src_tokens</span><span class="p">,</span> <span class="n">src_lengths</span><span class="p">)</span>
+        <span class="n">decoder_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoder</span><span class="p">(</span><span class="n">prev_output_tokens</span><span class="p">,</span> <span class="n">encoder_out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">decoder_out</span>
+</code></pre></div></div>
+
+<p>⚠️这里的build_model是会在task中以classmethod方法直接调用的，可视为独立于类外的函数。</p>
+
+<p>⚠️<code class="highlighter-rouge">__init__</code>函数中super必有，然后指定forward中会用到的东西就可以。</p>
+
+<p>⚠️forward的输入输出是由task决定的，具体来讲是每个minibatch中的<code class="highlighter-rouge">next_input</code>。</p>
+
+<h2 id="register-architecture">Register Architecture</h2>
+
+<p>将我们的模型起一个architecture的名字，并注册，这样就可以在命令行选择<code class="highlighter-rouge">—arch</code>参数了。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">fairseq.models</span> <span class="kn">import</span> <span class="n">register_model_architecture</span>
+
+<span class="o">@</span><span class="n">register_model_architecture</span><span class="p">(</span><span class="s">'simple_lstm'</span><span class="p">,</span> <span class="s">'tutorial_simple_lstm'</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">tutorial_simple_lstm</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>	<span class="c1"># 下面设置了默认参数，如果commandline没指定就用
+</span>    <span class="n">args</span><span class="o">.</span><span class="n">encoder_embed_dim</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s">'encoder_embed_dim'</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">encoder_hidden_dim</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s">'encoder_hidden_dim'</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">decoder_embed_dim</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s">'decoder_embed_dim'</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">decoder_hidden_dim</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s">'decoder_hidden_dim'</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>⚠️Architecture就是带有一组固定参数的model，是<strong>precise network configuration</strong>。</p>
+
+<h2 id="register-task">Register Task</h2>
+
+<p>官方讲的是：</p>
+
+<blockquote>
+  <p>A new FairseqTask will load our dictionaries and dataset. Tasks can also control how the data is batched into mini-batches.</p>
+</blockquote>
+
+<p>即task决定了一个任务的数据/词典载入方法，以及如何将数据包装为minibatch的形式。如果有新的任务，例如名字分类等不是seq2seq/lm的任务，要注册新的task。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">fairseq.data</span> <span class="kn">import</span> <span class="n">Dictionary</span><span class="p">,</span> <span class="n">LanguagePairDataset</span>	<span class="c1"># 这里会用到语言模型的dataset
+</span><span class="kn">from</span> <span class="nn">fairseq.tasks</span> <span class="kn">import</span> <span class="n">FairseqTask</span><span class="p">,</span> <span class="n">register_task</span>
+
+
+<span class="o">@</span><span class="n">register_task</span><span class="p">(</span><span class="s">'simple_classification'</span><span class="p">)</span>	<span class="c1"># 与注册model一样也要紧靠着
+</span><span class="k">class</span> <span class="nc">SimpleClassificationTask</span><span class="p">(</span><span class="n">FairseqTask</span><span class="p">):</span>
+
+    <span class="o">@</span><span class="nb">staticmethod</span>
+    <span class="k">def</span> <span class="nf">add_args</span><span class="p">(</span><span class="n">parser</span><span class="p">):</span>	<span class="c1"># 添加与data相关的参数，最大长度等
+</span>        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">'data'</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s">'FILE'</span><span class="p">,</span>
+                            <span class="n">help</span><span class="o">=</span><span class="s">'file prefix for data'</span><span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">'--max-positions'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                            <span class="n">help</span><span class="o">=</span><span class="s">'max input length'</span><span class="p">)</span>
+
+    <span class="o">@</span><span class="nb">classmethod</span>
+    <span class="k">def</span> <span class="nf">setup_task</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+      	<span class="c1"># 这里的作用与model中的build_model类似，返回类本身，可视为相对独立的构造
+</span>        <span class="n">input_vocab</span> <span class="o">=</span> <span class="n">Dictionary</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s">'dict.input.txt'</span><span class="p">))</span>
+        <span class="n">label_vocab</span> <span class="o">=</span> <span class="n">Dictionary</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s">'dict.label.txt'</span><span class="p">))</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">'| [input] dictionary: {} types'</span><span class="o">.</span><span class="nb">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">input_vocab</span><span class="p">)))</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">'| [label] dictionary: {} types'</span><span class="o">.</span><span class="nb">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">label_vocab</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="n">SimpleClassificationTask</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">input_vocab</span><span class="p">,</span> <span class="n">label_vocab</span><span class="p">)</span>
+		
+    <span class="c1">#	这是真正的构造函数，即setup_task的返回值会调用的函数，其中定义类中其他函数会用的self参数
+</span>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">input_vocab</span><span class="p">,</span> <span class="n">label_vocab</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_vocab</span> <span class="o">=</span> <span class="n">input_vocab</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">label_vocab</span> <span class="o">=</span> <span class="n">label_vocab</span>
+		
+    <span class="c1">#	load train/valid/test集合，会warp在一个for循环中，split分别是t/v/t
+</span>    <span class="k">def</span> <span class="nf">load_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="n">prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s">'{}.input-label'</span><span class="o">.</span><span class="nb">format</span><span class="p">(</span><span class="n">split</span><span class="p">))</span>
+
+        <span class="c1"># Read input sentences，返回一个名为sentences的list保存各个句子
+</span>        <span class="n">sentences</span><span class="p">,</span> <span class="n">lengths</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="s">'.input'</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="nb">file</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">file</span><span class="p">:</span>
+                <span class="n">sentence</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+                <span class="c1"># Tokenize the sentence, splitting on spaces
+</span>                <span class="n">tokens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_vocab</span><span class="o">.</span><span class="n">encode_line</span><span class="p">(</span>
+                    <span class="n">sentence</span><span class="p">,</span> <span class="n">add_if_not_exist</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="n">sentences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
+                <span class="n">lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tokens</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span>
+
+        <span class="c1"># Read labels，也是用list保存
+</span>        <span class="n">labels</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="s">'.label'</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="nb">file</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">file</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="n">labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="c1"># Convert label to a numeric ID.
+</span>                    <span class="n">torch</span><span class="o">.</span><span class="n">LongTensor</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">label_vocab</span><span class="o">.</span><span class="n">add_symbol</span><span class="p">(</span><span class="n">label</span><span class="p">)])</span>
+                <span class="p">)</span>
+
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">sentences</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">'| {} {} {} examples'</span><span class="o">.</span><span class="nb">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sentences</span><span class="p">)))</span>
+
+        <span class="c1"># We reuse LanguagePairDataset since classification can be modeled as a
+</span>        <span class="c1"># sequence-to-sequence task where the target sequence has length 1.
+</span>        <span class="c1"># 将上面的source/target两个list输入这个dataset类中
+</span>        <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">split</span><span class="p">]</span> <span class="o">=</span> <span class="n">LanguagePairDataset</span><span class="p">(</span>
+            <span class="n">src</span><span class="o">=</span><span class="n">sentences</span><span class="p">,</span>
+            <span class="n">src_sizes</span><span class="o">=</span><span class="n">lengths</span><span class="p">,</span>
+            <span class="n">src_dict</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">input_vocab</span><span class="p">,</span>
+            <span class="n">tgt</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span>
+            <span class="n">tgt_sizes</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)),</span>  <span class="c1"># targets have length 1
+</span>            <span class="n">tgt_dict</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">label_vocab</span><span class="p">,</span>
+            <span class="n">left_pad_source</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+            <span class="n">max_source_positions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">max_positions</span><span class="p">,</span>
+            <span class="n">max_target_positions</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="c1"># Since our target is a single class label, there's no need for
+</span>            <span class="c1"># input feeding. If we set this to ``True`` then our Model's
+</span>            <span class="c1"># ``forward()`` method would receive an additional argument called
+</span>            <span class="c1"># *prev_output_tokens* that would contain a shifted version of the
+</span>            <span class="c1"># target sequence.
+</span>            <span class="n">input_feeding</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        
+    <span class="k">def</span> <span class="nf">max_positions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># 直接返回两个数字，第一个是source中最大长度，第二个是label最大长度
+</span>        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">max_positions</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="o">@</span><span class="nb">property</span>
+    <span class="k">def</span> <span class="nf">source_dictionary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s">"""Return the source :class:`~fairseq.data.Dictionary`."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_vocab</span>
+
+    <span class="o">@</span><span class="nb">property</span>
+    <span class="k">def</span> <span class="nf">target_dictionary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s">"""Return the target :class:`~fairseq.data.Dictionary`."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_vocab</span>
+</code></pre></div></div>
+
+<p>可以看到task中规定了如何从源文件读取数据/字典（注意字典是preprocess时建立好的），并通过读取好的list建立dataset类，然后get_batch_iterator函数从dataset中获得一个iterator来读取数据。</p>
+
+<h2 id="train">Train</h2>
+
+<p>现在可以用<code class="highlighter-rouge">fairseq-train</code>的方法在命令行里训练了。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fairseq-train data-bin/iwslt14.tokenized.de-en <span class="se">\</span>
+  <span class="nt">--arch</span> tutorial_simple_lstm <span class="se">\</span>
+  <span class="nt">--encoder-dropout</span> 0.2 <span class="nt">--decoder-dropout</span> 0.2 <span class="se">\</span>
+  <span class="nt">--optimizer</span> adam <span class="nt">--lr</span> 0.005 <span class="nt">--lr-shrink</span> 0.5 <span class="se">\</span>
+  <span class="nt">--max-tokens</span> 12000
+</code></pre></div></div>
+
+<p>指定arch和task就可以了，这里task默认是translation，即按照翻译任务来读取数据等。</p>
+
+<h1 id="框架">框架</h1>
+
+<p>1⃣️初始化GPU参数</p>
+
+<p>2⃣️task.setup_task，如translation_task，LM task等等。其任务是打开数据集，加载词表，并打印到屏幕。</p>
+
+<p>3⃣️valid_dataset</p>
+
+<p>4⃣️建模model和criterion，直接调用task.build_model，返回我们刚刚写的build_model的模型。build_criterion也是一样的。</p>
+
+<p>5⃣️打印出模型各种信息（模型名字输出的是arch的名字）。</p>
+
+<p>6⃣️build一个trainer，输出了一些GPU信息。</p>
+
+<p>7⃣️如果有预训练的模型的话，加载进来。</p>
+
+<p>8⃣️初始化很多相关参数，max_epoch等，默认最大epoch是无穷.</p>
+
+<p>9⃣️开始训练！整个while循环的条件是lr不能太小/epoch不能太大/更新次数不能太多（步数）。接下来开始一个epoch的循环，都封装在train里面了。关于训练，train函数调用trainer.train_step，而trainer.train_step中会调用task.train_step，而task.train_step中把model和sample送入fairseq.criterion求loss。</p>
+
+<p>🔟训练一个epoch（train函数实现训练一个epoch），是valid的话valid一下，更新lr，保存checkpoint。最后停下来。</p>
+
+<p>⚠️所有task继承Fairseq_task并实现其中的接口。</p>
+
+<h1 id="autoencoder">Autoencoder</h1>
+
+<p>首先，句子级别的autoencoder也是一个seq2seq模型，只不过输入输出是相同的。</p>
+
+<p>我们说AE的decoder是一个CLM，那所有的seq2seq的decoder其实都是CLM，所以是废话。</p>
+:ET

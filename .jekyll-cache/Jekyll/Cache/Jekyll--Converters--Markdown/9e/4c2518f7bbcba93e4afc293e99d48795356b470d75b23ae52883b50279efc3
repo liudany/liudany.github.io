@@ -1,0 +1,87 @@
+I"T<h2 id="针对的问题">针对的问题</h2>
+
+<ol>
+  <li>A simple Gaussian prior could not indicate the complicated semantic information.</li>
+  <li>The auto-regressive structure results in a “posterior collapse” problem aka “KL vanishing”, where the strong auto-regressive decoder(e.g. LSTM) tends to ignore the latent code and predict the next token only based on the previous generated token.</li>
+</ol>
+
+<h2 id="现有方法及其问题">现有方法及其问题</h2>
+
+<ol>
+  <li>Some variant VAE try to impose some structure on the latent code with pre-defined parameter settings but without incorporating semantic meanings into the latent codes. In another word they only pre-define a complicated latent space but not incorporate the semantic information explicitly.</li>
+  <li>Existing strategies mitigate the “posterior collapse” issue by weakening the conditional dependency of the decoder. However these methods fail to generate high-quality continuous sentences.</li>
+</ol>
+
+<h2 id="改进的思路">改进的思路</h2>
+
+<p>Authors propose a topic-guided variational autoencoder(TGVAE) model.</p>
+
+<ol>
+  <li>TGVAE employs a Gaussian mixture model(GMM) as the prior distribution, where each mixture component corresponds to a latent topic.</li>
+  <li>Householder flow is introduced to transform a relatively simple mixture distribution into an arbitrarily flexible posterior, archieving powerful approximate posterior inference.</li>
+</ol>
+
+<h2 id="具体模型和方法">具体模型和方法</h2>
+
+<p><img src="/img/TGVAE.png" alt="" /></p>
+
+<h3 id="ntm-part">NTM Part</h3>
+
+<p>NTM part can be regarded as a <strong>Independent VAE</strong> which focuses on reconstructing BOW of document d and force the distribution of theta(topic variable) to be a Gaussian.</p>
+
+<p>$\theta$(or t) encodes the document semantic information of different topics, which indicates the usage of each topics. Meanwhile learnable $\beta$ indicates the topic distribution over words.</p>
+
+<p>Besides, NTM <strong>provides a prior</strong> for the following NSM model.  The prior is computed as follows:
+<script type="math/tex">% <![CDATA[
+\begin{aligned} p ( \boldsymbol { z } | \boldsymbol { \beta } , \boldsymbol { t } ) & = \sum _ { i = 1 } ^ { T } t _ { i } \mathcal { N } \left( \boldsymbol { \mu } \left( \boldsymbol { \beta } _ { i } \right) , \boldsymbol { \sigma } ^ { 2 } \left( \boldsymbol { \beta } _ { i } \right) \right) \\\\ \boldsymbol { \mu } \left( \boldsymbol { \beta } _ { i } \right) & = f _ { \mu } \left( \boldsymbol { \beta } _ { i } \right) \\\\ \boldsymbol { \sigma } ^ { 2 } \left( \boldsymbol { \beta } _ { i } \right) & = \operatorname { diag } \left( \exp \left( f _ { \sigma } \left( \boldsymbol { \beta } _ { i } \right) \right) \right) \end{aligned} %]]></script>
+where t is the document embedding which is computed by $\operatorname { softmax } (  \hat {  { \mathbf { W } } } \boldsymbol { \theta } + \hat { \boldsymbol { b } } )$. The first equation can be regarded as a weighted sum over the different words distribution for different topics(β).</p>
+
+<p>⚠️Notice that <strong>β is trainable parameters of NTM decoder, which indicates the distribution over words for topics, which are trainable parameters</strong> of size (T, D) where T is the number of topics and D is vocab size.</p>
+
+<h3 id="nsm-part">NSM Part</h3>
+
+<ul>
+  <li>A Householder Flow is incorporated in generating the posterior(from Z0 to Zk), which could enhance the flexibility and sematic meanings in latent code.</li>
+  <li>Latent code Z is sampled from a GMM which is computed as the same as NTM does. Note that both these funtions are inherited from the NTM part.</li>
+</ul>
+
+<h3 id="objective">Objective</h3>
+
+<p>The first two terms are the objective of topic model and the last two are of sequence model.
+<script type="math/tex">\mathcal { L } =  \mathbb { E } _ { q ( \boldsymbol { \theta } | \boldsymbol { d } ) } [ \log p ( \boldsymbol { d } | \boldsymbol { \beta } , \boldsymbol { \theta } ) ] - \mathrm { KL } ( q ( \boldsymbol { \theta } | \boldsymbol { d } ) \| p ( \boldsymbol { \theta } ) ) +   \mathbb { E } _ { q ( \boldsymbol { z } | \boldsymbol { y } ) } [ \log p ( \boldsymbol { y } | \boldsymbol { z } ) ] - \mathbb { E } _ { q ( \boldsymbol { \theta } | \boldsymbol { d } ) } [ \mathrm { KL } ( q ( \boldsymbol { z } | \boldsymbol { y } ) \| p ( \boldsymbol { z } | \boldsymbol { \beta } , \boldsymbol { \theta } ) ) ]</script>
+When employing Householder transformation, the sequence objective is:
+<script type="math/tex">\begin{array} { c } { \mathbb { E } _ { q _ { 0 } \left( \boldsymbol { z } _ { 0 } | \boldsymbol { y } \right) } \left[ \log p \left( \boldsymbol { y } | \boldsymbol { z } _ { K } \right) \right] + \sum _ { k = 1 } ^ { K } \log \left| \operatorname { det } \frac { \partial f _ { k } } { \partial \boldsymbol { z } _ { k - 1 } } \right| } \\ { - \mathbb { E } _ { q ( \boldsymbol { \theta } | \boldsymbol { d } ) } \left[ \operatorname { KL } \left( q _ { 0 } \left( \boldsymbol { z } _ { 0 } | \boldsymbol { y } \right) \| p \left( \boldsymbol { z } _ { K } | \boldsymbol { \beta } , \boldsymbol { \theta } \right) \right) \right] } \end{array}</script>
+Note that:</p>
+
+<ul>
+  <li>
+    <p>In Householder transformation, the Jacobian determinant is equal to 1.</p>
+  </li>
+  <li>
+    <p>The KL term between two GMM has no closed-form solution, but has a upper bound:
+<script type="math/tex">\begin{array} { l } { \mathcal { U } _ { K L } = \mathbb { E } _ { q ( \boldsymbol { \theta } | d ) } \operatorname { KL } ( \boldsymbol { \pi } ( \boldsymbol { y } ) \| \boldsymbol { t } ) } \\\\ { + \sum _ { i = 1 } ^ { T } \pi _ { i } ( \boldsymbol { y } ) \operatorname { KL } \left( \mathcal { N } \left( \boldsymbol { \mu } _ { i } ( \boldsymbol { y } ) , \boldsymbol { \sigma } _ { i } ^ { 2 } ( \boldsymbol { y } ) \| \mathcal { N } \left( \boldsymbol { \mu } \left( \boldsymbol { \beta } _ { i } \right) , \boldsymbol { \sigma } ^ { 2 } \left( \boldsymbol { \beta } _ { i } \right) \right) \right) \right] } \end{array}</script></p>
+  </li>
+</ul>
+
+<p>Now the objective is rewritten as a lower bound:
+<script type="math/tex">\mathcal { L } \geq \mathcal { L } _ { t } + \mathbb { E } _ { q _ { 0 } \left( z _ { 0 } | y \right) } \left[ \log p \left( \boldsymbol { y } | \boldsymbol { z } _ { K } \right) \right] - \mathcal { U } _ { K L }</script></p>
+
+<h2 id="想法">想法</h2>
+
+<ol>
+  <li>
+    <p>本文属于CVAE的一种扩展。</p>
+  </li>
+  <li>
+    <p>为什么要做一个variational的topic model？</p>
+
+    <p>document-&gt;topic-&gt;document, making this method unsupervised.</p>
+  </li>
+  <li>
+    <p>Householder Flow对KL项的影响不能明确的表示，因为这里用了upper bound来表示Ukl而并没有明确的计算KL，不能说就消除了KL vanishing。</p>
+  </li>
+  <li>
+    <p>GMM模型对层次化结构的指导，可以每个句子一个Gaussian然后weighted sum成GMM作为先验？</p>
+  </li>
+</ol>
+:ET

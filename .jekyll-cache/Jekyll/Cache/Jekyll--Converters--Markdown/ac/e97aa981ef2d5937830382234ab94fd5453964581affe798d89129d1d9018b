@@ -1,0 +1,103 @@
+I"�<h2 id="the-variational-auto-encoder">The variational auto encoder</h2>
+
+<p>作者认为VAE是一个<strong>带正则的普通DAE</strong>，这个正则就是将hidden code z强制到一个确定的先验分布上，即损失中的KL损失项。</p>
+
+<p>直观来讲，对于DAE来讲把X映射到一个确定的点，而直观来讲<strong>VAE是把X映射到一个光滑连续的椭球面区域（通过一个点和方差来实现），之后通过KL项让这些区域充满整个球。</strong></p>
+
+<p>如果在VAE中去掉Loss中的KL项只保留重构误差，那么模型会迫使方差到0（偷懒），然后又变成了一个DAE。</p>
+
+<p>⚠️<strong>这里顺便比较一下VAE和DAE结构（实现）上的不同：只有两点，一个是encoder之后的sample操作，另一个是损失函数中多了KL项，decoder的地方是并没有不同的。</strong></p>
+
+<h2 id="vae-for-sentences">VAE for sentences</h2>
+
+<p>结合LSTM，这时VAE的decoder可以认为是一个<strong>conditional language model</strong>，其条件就是hidden code。</p>
+
+<p><strong>所以在hidden code没有有效的incorporate information的时，模型degenerate为普通LM。</strong></p>
+
+<p>作者尝试过很多种利用z的不同方法，例如：</p>
+
+<ul>
+  <li>在decoder的每一个时间步上concat z</li>
+  <li>在encoder和z和decoder之间都加入深度NN</li>
+  <li>softplus parametrization for variance。</li>
+</ul>
+
+<p>发现对于<strong>结果并无显著的差别</strong>，但是作者选择在第二种情况下，各使用4层highway network。注意第三种说的softplus可使结果非负，公式为：
+<script type="math/tex">\zeta ( x ) = \log ( 1 + \exp ( x ) )</script>
+作者们也尝试了把encoder处变得更加精密复杂，例如多步采样等，发现也<strong>不能提高效果</strong>。</p>
+
+<h3 id="优化中的问题">优化中的问题</h3>
+
+<p>我们的模型目的在于学习句子的全局表征，学的怎么样可以通过变分下界/ELBO/Loss（同一个东西）来看。</p>
+
+<p>能编码有效信息的模型要满足：</p>
+
+<ul>
+  <li>KL项非零</li>
+  <li>相对较小的重构误差</li>
+</ul>
+
+<p>但是LSTM-VAE不能直接学到这些特点，<strong>大部分的训练中出现KL项都一直为0的现象。</strong>这意味着模型退化为普通LM，即z中没有encode有效信息。</p>
+
+<p>更麻烦的是LSTM decoder对于z的方差变化的敏感性，因为随机的方差<strong>导致z一直在变化</strong>，所以干脆忽视z，使得任务退化为简单的LM，这样优化任务会变得更加简单。此时Decoder和Encoder之间的反向传播信噪比非常低，不能有效的更新encoder，使得模型进入一种我们不愿看到的稳定状态，即KL坍塌到0。</p>
+
+<p>作者提到了在图像领域的vae中，有人<strong>用weaker一些的decoder，迫使decoder必须要利用hidden code的信息。</strong></p>
+
+<p>作者提出了两种方法来改进：</p>
+
+<ul>
+  <li>KL cost annealing：退火算法，给损失中的KL项加一个系数，从0开始慢慢增大到1，这使得模型在开始阶段更关注于怎么在z中编码更多的有效信息，之后再将分散的面强制到先验空间内。</li>
+  <li>Word drop out：对decoder而言的，一般而言都是teacher forcing的，用ground truth，为了weaker这个decoder我们把这个ground truth中都drop out一些，丢失一些信息量，这样可以decoder更依赖于z。</li>
+</ul>
+
+<h1 id="kl-vanishing">KL-vanishing</h1>
+
+<p>下面是关于KL vanishing的一个<a href="https://weiwenku.net/d/104863198#tuit">讨论</a>。</p>
+
+<h2 id="产生原因">产生原因</h2>
+
+<p>最大化ELBO的目标，等价于<strong>最大化重构并最小化KL项</strong>，分开来看：</p>
+
+<ul>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td>使得data x和latent z相互独立，并让P(z</td>
+          <td>X)等于先验P(z)，这样KL就等于0了。</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+  <li>当decoder足够强大，可以不利用隐向量z中的信息，本身就足够model样本X的分布，可以不依赖z。</li>
+</ul>
+
+<p>所以解决方法也分为针对KL项和针对重构过程这两部分。</p>
+
+<h2 id="针对kl">针对KL</h2>
+
+<p>这一部分也可以说，怎么让z中包括更多x的信息，二者更加相关。</p>
+
+<ul>
+  <li>KL cost annealing：即上面讲到的，刚开始的时候系数比较小，encoder更关注于把x的信息encode到z中。通常搭配word-drop-out使用。</li>
+  <li>Free Bites：针对维度来做的，如果这一维度KL值太小，不管它，等他超过一定阈值之后再计入loss优化。</li>
+  <li>Normalizing flow：《Variational lossy autoencoder》. ICLR 2017.</li>
+  <li>Auxiliary Autoencoder：《Improving Variational Encoder-Decoders in Dialogue Generation》. AAAI 2018.</li>
+</ul>
+
+<h2 id="针对reconstruction">针对Reconstruction</h2>
+
+<ul>
+  <li>word drop out</li>
+  <li>CNN decoder：避免autoregreesive结构。</li>
+  <li>Additional Loss：《Learning discourse-level diversity for neural dialog models using conditional variational autoencoders》. ACL 2017.</li>
+</ul>
+
+<h2 id="vae-dae-lm-clm">VAE, DAE, LM, CLM</h2>
+
+<p>VAE与DAE结构上相比，只在hidden code生成上有所不同，一个是deterministirc的一个是sample。</p>
+
+<p>都针对LSTM结构文本任务而言，LM的训练过程是预测下一词；文本任务的DAE训练过程是根据一个确定的latent code来一步一步预测下一词，恢复原句，是一种条件语言模型CLM；VAE的训练过程也是根据一个latent code来恢复原句，与DAE相比只是这个latent code的生成方法不一样而已（损失也不同），也是CLM。</p>
+
+<p>综上，基于LSTM网络文本任务的AE都是一种conditional language model，只是z生成方式不同。</p>
+:ET

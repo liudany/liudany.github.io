@@ -1,0 +1,42 @@
+I"�<h2 id="abstract">Abstract</h2>
+
+<ol>
+  <li><strong>Finite context</strong> approach through <strong>stacked convolutions</strong>, which allows <strong>parallelization</strong>.</li>
+  <li><strong>Gating mechanism</strong>.</li>
+</ol>
+
+<h2 id="approach">Approach</h2>
+
+<p>Conv has no temporal dependecies(时间依赖性), making parallel possible. But the context size is <strong>finite</strong>.</p>
+
+<ol>
+  <li>Before convolving inputs, we <strong>shift the input sequence by zero-padding</strong> the begging with k-1 elements(kernel size is k). Therefore hidden state(hi) does not contain information from future words.</li>
+  <li>Convolve</li>
+  <li>The output of each layer is modulated(调节)(<strong>element-wise multiply</strong>) by gates $\sigma ( \mathbf { X } * \mathbf { V } + \mathbf { c } )$, which looks like what LSTM does. <strong>This is dubbed GLU.</strong></li>
+  <li>Warp conv and GLU win a <strong>residual block</strong>.</li>
+  <li>Choose an improvement of hierarchical softmax known as <strong>adaptive softmax</strong>.</li>
+</ol>
+
+<p><img src="/img/convlm.png" alt="" /></p>
+
+<h2 id="gated-mechanism">Gated Mechanism</h2>
+
+<p>Compared with RNN, <strong>there is no gradient vanishing problem</strong>. Therefore we can use only the output gate to control what information should be propagated through layers.</p>
+
+<h2 id="setup">Setup</h2>
+
+<ul>
+  <li>Using gradient clipping(and argue that GC is not only for RNN)</li>
+  <li>Weight normalization</li>
+  <li>Kaiming initialization</li>
+  <li>Learning rate is sampled uniformly in [1, 2]</li>
+</ul>
+
+<h2 id="context-size">Context Size</h2>
+
+<p>40 is a magic number.</p>
+
+<p>Larger contexts improve accuracy but <strong>returns(回报) drastically diminish</strong> with windows larger than 40 words.</p>
+
+<p>This is congruent(一致) with the fact that RNN obtains good performance by <strong>truncating gradients</strong> after only 40 timesteps using <strong>truncated BPTT(截断式BPTT)</strong>.</p>
+:ET

@@ -1,0 +1,49 @@
+I"�<h1 id="常见编码">常见编码</h1>
+<h2 id="ascii码">ASCII码</h2>
+
+<p>8位二进制来编，第一位统一规定为0，可以表示128个字母和数字等，囊括所有罗马字母。</p>
+
+<h2 id="unicode">Unicode</h2>
+
+<p>包含了世界上所有字符，从阿拉伯字母到英语到汉语都有。
+<strong>Unicode只是一个符号集，只规定了符号的二进制代码，却没规定编码方式，或者说存储方法。</strong>一个字符在Unicode中的位置也叫做在Unicode中的「码点」。</p>
+
+<h2 id="utf-8">UTF-8</h2>
+
+<p>接上，这是一种Unicode的实现方式。属于<strong>1-4字节的变长编码</strong>，编码规则有两条：</p>
+<ol>
+  <li>首位为0开始的，是单字节编码，后面7位是Unicode码。因此<strong>对于英文字母，UTF-8和ASCII码是相同的。</strong></li>
+  <li>首位为1开始的，是多字节（大于1）编码。多字节中的第一个字节以<code class="highlighter-rouge">11..10</code>开头，有几个1就表示这个码长几字节；后面剩下的所有字节均以10开头。</li>
+</ol>
+
+<h2 id="utf-8-with-bom">UTF-8 with BOM</h2>
+
+<p>之前在CWMT翻译比赛上有这么一个要求，评测文件必须保存为UTF8 with BOM的形式。BOM是啥呢。</p>
+
+<p>BOM是Byte-Order Mark，字节顺序标记，主要为UTF-16和UTF-32准备的。UTF-8不需要BOM，因为每一段字节都有特殊含义（如第一段开头表示有几个字节等），所以UTF-8不存在字节序问题。</p>
+
+<p>但是UTF-16和UTF-32都存在字节序的问题，所谓BOM就是在字节流开头加上<code class="highlighter-rouge">U+FEFF</code>标识高位在前还是低位在前。</p>
+
+<h1 id="python编码处理">Python编码处理</h1>
+
+<p>有时需要将所有字符都罗马化，需要用到Unicode2ascii，方法为：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">unicodedata</span>
+<span class="kn">import</span> <span class="nn">string</span>
+
+<span class="n">all_letters</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">ascii_letters</span> <span class="o">+</span> <span class="s">" .,;'"</span>
+<span class="n">n_letters</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_letters</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">unicodeToAscii</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s">''</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s">'NFD'</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">category</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">!=</span> <span class="s">'Mn'</span>
+        <span class="ow">and</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">all_letters</span>
+    <span class="p">)</span>
+</code></pre></div></div>
+
+<ol>
+  <li><code class="highlighter-rouge">string.ascii_letters</code>是一个英文字母大小写组合成的list。</li>
+  <li><code class="highlighter-rouge">unicodedata.normalize('NFD', s)</code>将一些乱七八糟字母分解为ascii码与字符的组合，例如<code class="highlighter-rouge">Ś</code> -&gt; <code class="highlighter-rouge">S+ ́</code>，注意这两个符号不能并排输出，会自动合并成原来的。</li>
+  <li>此处category和in一起判断符号是不是特殊符号，只保留ascii。</li>
+</ol>
+:ET

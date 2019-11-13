@@ -1,0 +1,336 @@
+I"2(<div>
+
+  <div>
+    
+    <div id="#rnn"></div>
+    <p></p>
+    
+    <h3>Rnn</h3>
+    <a name="rnn"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/01/post-5">All about AllenNLP</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#regularization"></div>
+    <p></p>
+    
+    <h3>Regularization</h3>
+    <a name="regularization"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/01/post-5">All about AllenNLP</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#Github"></div>
+    <p></p>
+    
+    <h3>Github</h3>
+    <a name="Github"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/06/post">Hexo+Github搭建个人博客</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#NMT"></div>
+    <p></p>
+    
+    <h3>Nmt</h3>
+    <a name="NMT"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/06/post-2">Mosedecoder汉英翻译中的数据预处理</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#LaTex"></div>
+    <p></p>
+    
+    <h3>Latex</h3>
+    <a name="LaTex"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/06/post-3">记LaTeX中踩过的那些坑</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#PyTorch"></div>
+    <p></p>
+    
+    <h3>Pytorch</h3>
+    <a name="PyTorch"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-4">TorchText tutorial</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-3">PyTorch Multi-GPU Parallel and 0.4 Migration</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post">Some Basic Concepts in Deep Learning</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/11/post">PyTorch的一些坑</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/09/post">CLassifying Names with a Character-Level RNN 字符级RNN实现姓名分类</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-5">《深度学习框架：PyTorch》学习笔记（5）常用工具</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-4">《深度学习框架：PyTorch》学习笔记（4）nn</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-3">《深度学习框架：PyTorch》学习笔记（3）Autograd</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-2">《深度学习框架：PyTorch》学习笔记（2）Tensor</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post">《深度学习框架：PyTorch》学习笔记（1）快速入门</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#Python"></div>
+    <p></p>
+    
+    <h3>Python</h3>
+    <a name="Python"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-6">一些Python概念和语法整理</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#RNN"></div>
+    <p></p>
+    
+    <h3>Rnn</h3>
+    <a name="RNN"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/12/post">Encoder-Decoder Details</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/09/post-2">Teacher Forcing</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-9">【翻译】《The Unreasonable Effectiveness of Recurrent Neural Networks》</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-7">【翻译】《Understanding LSTM Networks》</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#NLP"></div>
+    <p></p>
+    
+    <h3>Nlp</h3>
+    <a name="NLP"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-20">A Variational Approach to Vocabulary Selection</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-19">A Variational Approach to Weakly Supervised Document-Level Multi-Aspect Sentiment Classificatio</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-18">CCMT 2019 CE-EC Task</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-17">Topic-Guided Variational Autoencoders for Text Generation</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-16">Ganerative Adversarial Network Tutorial</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-15">Fairseq Tutorial</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-13">Convolutional Sequence to Sequence Learning</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-14">Language Modeling with Gated Convolutional Networks</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-12">Hierarchical Neural Story Generation</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-11">Generating Classical Chinese Poems via Conditional Variational Autoencoder</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-10">Generating Sentences from a Continuous Space</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-9">Varational Auto-Encoder Details</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-7">Reading notes about BERT, ELMo and GPT</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-6">Language Model Pytorch Implementation</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-5">HUGO Homepage Deployment and Some Gits</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/11/post-2">CS224n Notes 2： RNN n' Language Model</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/10/post">CS224n Notes 1： Word Embedding</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-13">FastText for text classification</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-11">Sequence Models and LSTM in Part-of-Speech Tagging 词性标注</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-10">Word Embedding &amp; Language Model 词嵌入和语言模型</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-8">Logistic Regression Bag-of-Words Classifier 词袋模型</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#LSTM"></div>
+    <p></p>
+    
+    <h3>Lstm</h3>
+    <a name="LSTM"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/09/post">CLassifying Names with a Character-Level RNN 字符级RNN实现姓名分类</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-11">Sequence Models and LSTM in Part-of-Speech Tagging 词性标注</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#编码"></div>
+    <p></p>
+    
+    <h3>编码</h3>
+    <a name="编码"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/07/post-12">常见编码之间的区别联系，以及Python中编码处理</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#论文"></div>
+    <p></p>
+    
+    <h3>论文</h3>
+    <a name="论文"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2018/10/post-2">Unsupervised NMT几篇文章-Notes</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#Autoencoder"></div>
+    <p></p>
+    
+    <h3>Autoencoder</h3>
+    <a name="Autoencoder"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-8">About Autoencoder</a></font></li>
+    </article>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/05/post-2">The Annotated Transformer</a></font></li>
+    </article>
+    
+  </div>
+
+  <div>
+    
+    <div id="#IELTS"></div>
+    <p></p>
+    
+    <h3>Ielts</h3>
+    <a name="IELTS"></a>
+    
+    <article>
+        <li><font size="3"><a href="/academic-portfolio-master//blog/2019/10/post-ielts">IELTS Writing Task</a></font></li>
+    </article>
+    
+  </div>
+
+</div>
+:ET

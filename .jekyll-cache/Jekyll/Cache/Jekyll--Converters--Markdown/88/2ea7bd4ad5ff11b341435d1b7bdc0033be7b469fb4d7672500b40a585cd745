@@ -1,0 +1,102 @@
+I"�9<p>今天读一下PyTorch Tutorials里<a href="https://pytorch.org/tutorials/beginner/nlp/word_embeddings_tutorial.html#getting-dense-word-embeddings">关于Word Embedding的部分</a>。</p>
+
+<h1 id="概念">概念</h1>
+
+<ol>
+  <li>词嵌入是「Encoding Lexical Semantics」，是对单词的语义进行了编码。普通的ASCII码或是One-hot编码都是将词汇视为independent entities而忽视了词汇之间的similarity或者说semantic relation。</li>
+  <li>Sematic similarity常基于distributional hypothesis：认为具有相似的上下文的词语，在语义上也是相似的。</li>
+  <li>词嵌入向量的每一个维度是一个特征，但是网络学习到的向量的特征往往是不可解释的。</li>
+</ol>
+
+<h1 id="基础用法">基础用法</h1>
+
+<p>词嵌入以一个V*D的矩阵的矩阵形式，每行是一个词的嵌入，D是向量维度。这里也需要一个索引号来对应词汇和向量，用法与前面词袋模型中的<strong>word_to_ix</strong>相同，以单词为索引，对应的索引号为value。</p>
+
+<p>在PyTorch中，Embedding与其他层的用法相同，先实例化一个固定维度的Embedding，这时候其中的词向量都是随机初始化的，可以对实例传入index参数<strong>（不需要ont-hot直接index）</strong>来取出对应位置（词汇）的词向量。之后再建立神经网络，<strong>通过learning的方法来不断更新Embedding中的参数</strong>，希望让这些参数能够蕴含单词的语意信息。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">word_to_ix</span> <span class="o">=</span> <span class="p">{</span><span class="s">"hello"</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="s">"world"</span><span class="p">:</span><span class="mi">1</span><span class="p">}</span>
+<span class="n">embeds</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">lookup_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">word_to_ix</span><span class="p">[</span><span class="s">"hello"</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="nb">long</span><span class="p">)</span>
+<span class="n">hello_embed</span> <span class="o">=</span> <span class="n">embeds</span><span class="p">(</span><span class="n">lookup_tensor</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">hello_embed</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>要注意：</p>
+<ol>
+  <li>Embedding要实例化，定义时参数为(vocab_size, embedding_dim)。</li>
+  <li>之后在实例中索引时注意<strong>索引必须是LongTensor类型</strong>。</li>
+  <li>得到的hello_embed是每行一个词向量。</li>
+</ol>
+
+<h1 id="n-gram-language-model">N-Gram Language Model</h1>
+
+<p>上面说到词向量是训练得来的，既然是训练，就要有目标要有损失。用Language Model训练词向量是一种方法，即从上下文的角度去定义语义。这一点与分布假说是符合的。</p>
+
+<h2 id="预处理">预处理</h2>
+
+<p>将语料切分为N-Gram的形式，这里具体使用tri-gram。并构建词典，并分配索引。</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">CONTEXT_SIZE</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">EMBEDDING_DIM</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="c1">#语料使用Shakespeare的Sonnet2，这里意思一下就行
+</span><span class="n">test_sentence</span> <span class="o">=</span> <span class="s">"""When forty winters shall besiege thy brow,
+And dig deep trenches in thy beauty's field..."""</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+<span class="n">trigrams</span> <span class="o">=</span> <span class="p">[([</span><span class="n">test_sentence</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">test_sentence</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]],</span> <span class="n">test_sentence</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">test_sentence</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)]</span>
+<span class="n">vocab</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">test_sentence</span><span class="p">)</span>
+<span class="n">word_to_ix</span> <span class="o">=</span> <span class="p">{</span><span class="n">word</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">word</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">vocab</span><span class="p">)}</span>
+</code></pre></div></div>
+
+<h2 id="定义网络">定义网络</h2>
+
+<p>注意Embedding层的定义方式和其他层一样。</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">NGramLanguageModeler</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vocab_size</span><span class="p">,</span> <span class="n">embedding_dim</span><span class="p">,</span> <span class="n">context_size</span><span class="p">):</span>
+		<span class="nb">super</span><span class="p">(</span><span class="n">NGramLanguageModeler</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">embeddings</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">vocab_size</span><span class="p">,</span> <span class="n">embedding_dim</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">linear1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embedding_size</span> <span class="o">*</span> <span class="n">context_size</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">linear2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="n">vocab_size</span><span class="p">)</span>
+
+	<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+		<span class="n">embeds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embeddings</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+		<span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="p">(</span><span class="n">embeds</span><span class="p">))</span>
+		<span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+		<span class="n">log_probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">log_softmax</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">log_probs</span>
+</code></pre></div></div>
+
+<p>注意的地方：</p>
+<ol>
+  <li>第一层FC层，输入维度为<strong>embedding_size * context_size</strong>，因为每次根据context_size个词汇作为输入，来预测下一个。</li>
+  <li>第二层FC层，输出维度为<strong>vocab_size</strong>，因为语言模型其实也是个分类问题，类别数为词表的大小，最后softmax层输出每一个类别的概率。</li>
+  <li>注意网络的输入是句子中单词的<strong>索引</strong>，因为在forward中第一层embedding中会按这些索引来取出词向量。</li>
+  <li>Embedding是nn中的函数，embedings是词嵌入层在类中的实例，embeds是将输出向量化后得到的向量。</li>
+  <li><code class="highlighter-rouge">embeddings(inputs)</code>在取词向量时，索引可以是一个tensor，一行或是一列都可以。取出来以后的词向量都以一行一个词的形式表示。这里context为2所以取出两个词向量，后面的view方法把这两个词向量拼接了起来。
+    <h2 id="训练">训练</h2>
+  </li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">losses</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">loss_function</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">NLLLoss</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">NGramLanguageModeler</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vocab</span><span class="p">),</span> <span class="n">EMBEDDING_DIM</span><span class="p">,</span> <span class="n">CONTEXT_SIZE</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+	<span class="n">total_loss</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">for</span> <span class="n">context</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">trigrams</span><span class="p">:</span>
+		<span class="n">context_indx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">word_to_ix</span><span class="p">[</span><span class="n">w</span><span class="p">]</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">context</span><span class="p">],</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="nb">long</span><span class="p">)</span>
+		<span class="n">model</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+		<span class="n">log_probs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">context_indx</span><span class="p">)</span>
+		<span class="n">loss</span> <span class="o">=</span> <span class="n">loss_function</span><span class="p">(</span><span class="n">log_probs</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">word_to_ix</span><span class="p">[</span><span class="n">target</span><span class="p">]],</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="nb">long</span><span class="p">))</span>
+		<span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+		<span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+		<span class="n">total_loss</span> <span class="o">+=</span> <span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+	<span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">total_loss</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ol>
+  <li>开一个list来记录loss，之前一般在epoch中实时输出，这里是记录loss，在训练结束后一次性输出。</li>
+  <li>该网络输入是索引，必须为LongTensor类型。有两种方法，<code class="highlighter-rouge">LongTensor()</code>直接初始化或者<code class="highlighter-rouge">tensor(data, dtype = torch.long)</code>。</li>
+  <li>loss_function里面的两个参数，第一个为softmax的输出，是一个list，每个元素为对应的word出现的概率的log，<strong>第二个参数可以是索引，也可以是ont-hot表示</strong>，即label=[3]和[0, 0, 0, 1, 0 …]是相同的。在这里使用的是索引号。</li>
+  <li>loss是一个单元素tensor，取出数字的方法为<code class="highlighter-rouge">tensor.item()</code>。</li>
+</ol>
+:ET

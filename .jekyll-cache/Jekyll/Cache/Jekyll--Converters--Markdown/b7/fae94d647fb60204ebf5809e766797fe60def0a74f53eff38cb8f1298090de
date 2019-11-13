@@ -1,0 +1,211 @@
+I"�<h1 id="写在前面">写在前面</h1>
+<p>折腾了一学期各种框架和模型，TensorFLow的静态图方式用了很久都不适应。相比之下对我来说，PyTorch的可写可读性都要强出很多，而且越来越多的优秀项目使用PyTorch写的了。看这本书的最终目标是读懂StarGAN和FairSeq！</p>
+
+<h1 id="ipython--jupyter-notebook">IPython &amp; Jupyter Notebook</h1>
+<p>因为我们的服务器和很多机器用的一个公网地址，所以想配置Jupyter服务器还要去服务器在的实验室配置一下路由器的端口转发，有时间去搞一下，现在自己电脑上学着。</p>
+
+<h1 id="tensor">Tensor</h1>
+<p>Tensor就是可以使用GPU加速的高维数组。Tensor和numpy的数组之间可以相互转换，且共享内存，共同变化。</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">a</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+</code></pre></div></div>
+<h1 id="autograd--variable">Autograd &amp; Variable</h1>
+<p>Variable封装了Tensor，可以分为<code class="highlighter-rouge">data + grad + grad_fn</code>三部分，并增加了<code class="highlighter-rouge">.backward</code>反向传播的功能（认为Tensor和Variable是<code class="highlighter-rouge">requires_grad</code>属性不同的同一类变量即可）。调用Variable中Tensor数据的方法为<code class="highlighter-rouge">Variable.data</code>，调用Variable梯度数据的方法为<code class="highlighter-rouge">Variable.grad.data</code>，也就是说<code class="highlighter-rouge">.grad</code>属性其实也是一个Variable变量。举例来说，进行梯度下降的算法可以表示为：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">w</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">sub_</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">data</span> <span class="o">*</span> <span class="n">learning_rate</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>在反向传播时会出现两种错误，第一个，如果没给参与运算的Variable指定<code class="highlighter-rouge">requires_grad</code>属性为真的话：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">torch.autograd</span> <span class="kn">import</span> <span class="n">Variable</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">requires_grad</span> <span class="o">=</span> <span class="bp">False</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="nb">sum</span><span class="p">()</span>
+<span class="n">y</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="n">x</span><span class="o">.</span><span class="n">grad</span>
+<span class="nb">RuntimeError</span><span class="p">:</span> <span class="n">element</span> <span class="mi">0</span> <span class="n">of</span> <span class="n">tensors</span> <span class="n">does</span> <span class="ow">not</span> <span class="n">require</span> <span class="n">grad</span> <span class="ow">and</span> <span class="n">does</span> <span class="ow">not</span> <span class="n">have</span> <span class="n">a</span> <span class="n">grad_fn</span>
+</code></pre></div></div>
+
+<p>某些运算不能<code class="highlighter-rouge">直接</code>反向传播，比如余弦：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">x</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">requires_grad</span> <span class="o">=</span> <span class="bp">False</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="n">y</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="n">x</span><span class="o">.</span><span class="n">grad</span>
+<span class="nb">RuntimeError</span><span class="p">:</span> <span class="n">grad</span> <span class="n">can</span> <span class="n">be</span> <span class="n">implicitly</span> <span class="n">created</span> <span class="n">only</span> <span class="k">for</span> <span class="n">scalar</span> <span class="n">outputs</span>
+</code></pre></div></div>
+<p>7/4：这里不是因为余弦的问题。y是一个tensor，不可以隐式的调用.backward()方法，只有标量（例如大部分情况下的loss）可以这样使用。
+在对矢量反向传播的场合必须添加参数<code class="highlighter-rouge">v.backward(grad_variables)</code>，将第一层的导数添加进来。</p>
+
+<h1 id="nn--实现cifar-10分类">nn &amp; 实现CIFAR-10分类</h1>
+<p>CIFAR-10是一个常用的10类别3通道32x32彩色图像物体识别的小数据集，用个例子说明下PyTorch搭网络的一般流程。</p>
+
+<h2 id="数据预加载和预处理">数据预加载和预处理</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">torchvision</span> <span class="k">as</span> <span class="n">tv</span>
+<span class="kn">import</span> <span class="nn">torchvision.transforms</span> <span class="k">as</span> <span class="n">transforms</span>
+<span class="kn">from</span> <span class="nn">torchvision.transforms</span> <span class="kn">import</span> <span class="n">ToPILImage</span>
+<span class="n">show</span> <span class="o">=</span> <span class="n">ToPILImage</span><span class="p">()</span> <span class="c1">#实例化
+</span>
+<span class="n">transform</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span>
+        <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">(),</span>
+        <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">((</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)),</span>
+                             <span class="p">])</span>
+</code></pre></div></div>
+
+<ol>
+  <li>torchvision是专门用于图像的包，其中tv.datasets中包含了常见的各种图像数据（MNIST，CIFAR-10，Imagenet等），可返回一个Dataset对象。Dataset对象可以使用索引的方式访问，方法为<code class="highlighter-rouge">(data, label) = dataset[10]</code>，注意标签的序列化和图像数据的tensor形式。</li>
+  <li>tv.transform中的ToPILImage如名字，形如(C, H, W)的Tensor数据转化为PIL(Python Image Library)的数据，方便用show方法显示图片。</li>
+  <li>ToPILImage为一个class，<code class="highlighter-rouge">show = IoPILImage()</code>实例化。</li>
+  <li><code class="highlighter-rouge">transforms.Compose()</code>将一系列的transform动作chained together，整合为一个transform流程。上面例子中先转为Tensor，再标准化，其中第一个(0.5, 0.5, 0.5)为每个通道的均值，第二个括号为每个通道的标准差。</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">trainset</span> <span class="o">=</span> <span class="n">tv</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">CIFAR10</span><span class="p">(</span>
+                    <span class="n">root</span><span class="o">=</span><span class="s">'/home/cy/tmp/data/'</span><span class="p">,</span> 
+                    <span class="n">train</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> 
+                    <span class="n">download</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                    <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+
+<span class="n">trainloader</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span>
+                    <span class="n">trainset</span><span class="p">,</span> 
+                    <span class="n">batch_size</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+                    <span class="n">shuffle</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> 
+                    <span class="n">num_workers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="n">testset</span> <span class="o">=</span> <span class="n">tv</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">CIFAR10</span><span class="p">(</span>
+                    <span class="s">'/home/cy/tmp/data/'</span><span class="p">,</span>
+                    <span class="n">train</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> 
+                    <span class="n">download</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> 
+                    <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+
+<span class="n">testloader</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span>
+                    <span class="n">testset</span><span class="p">,</span>
+                    <span class="n">batch_size</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> 
+                    <span class="n">shuffle</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                    <span class="n">num_workers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="n">classes</span> <span class="o">=</span> <span class="p">(</span><span class="s">'plane'</span><span class="p">,</span> <span class="s">'car'</span><span class="p">,</span> <span class="s">'bird'</span><span class="p">,</span> <span class="s">'cat'</span><span class="p">,</span>
+           <span class="s">'deer'</span><span class="p">,</span> <span class="s">'dog'</span><span class="p">,</span> <span class="s">'frog'</span><span class="p">,</span> <span class="s">'horse'</span><span class="p">,</span> <span class="s">'ship'</span><span class="p">,</span> <span class="s">'truck'</span><span class="p">)</span>
+</code></pre></div></div>
+<ol>
+  <li>trainset和testset都是dataset对象，可以通过下标来索引，数据为(data, label)形式。</li>
+  <li>torch.utils是一个工具包，其中的.data.Dataloader用于加载数据集，第一个参数为刚才生成的dataset对象，返回一个可用于迭代的加载器。例如可用<code class="highlighter-rouge">iter()</code>函数生成迭代器后<code class="highlighter-rouge">.next()</code>方法查看下一个元素。其元素格式为<code class="highlighter-rouge">(data[batch_size], label[batch_size])</code>，以batch为单位。</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">dataiter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">trainloader</span><span class="p">)</span>
+<span class="n">images</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">dataiter</span><span class="o">.</span><span class="nb">next</span><span class="p">()</span>
+<span class="k">print</span><span class="p">(</span><span class="s">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s">'</span><span class="si">%11</span><span class="s">s'</span><span class="o">%</span><span class="n">classes</span><span class="p">[</span><span class="n">labels</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)))</span>
+<span class="n">show</span><span class="p">(</span><span class="n">tv</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">make_grid</span><span class="p">((</span><span class="n">images</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">resize</span><span class="p">((</span><span class="mi">400</span><span class="p">,</span><span class="mi">100</span><span class="p">))</span>
+</code></pre></div></div>
+<ol>
+  <li>用<code class="highlighter-rouge">iter()</code>函数生成了迭代器，并用<code class="highlighter-rouge">.next()</code>方法一次性获取上面设置的<code class="highlighter-rouge">batch_size</code>个数据与标签。</li>
+  <li>torchvision包的utils工具包中<code class="highlighter-rouge">make_grid()</code>函数为一系列相同大小Tensor格式图像(B x C x H x W)画边框。</li>
+</ol>
+
+<h2 id="定义网络">定义网络</h2>
+
+<p>实现LeNet网络。</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="n">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="n">F</span>
+
+<span class="k">class</span> <span class="nc">Net</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Net</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>  
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">)</span>  
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span> 
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> 
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span> 
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> 
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>        
+        <span class="k">return</span> <span class="n">x</span>
+
+
+<span class="n">net</span> <span class="o">=</span> <span class="n">Net</span><span class="p">()</span>
+<span class="k">print</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>
+</code></pre></div></div>
+<ol>
+  <li>PyTorch在定义网络时，需要继承<code class="highlighter-rouge">nn.Moudle</code>模块，并在构造函数中执行父类的构造函数。代码中的<code class="highlighter-rouge">super()</code>函数返回父类。</li>
+  <li>尽量把网络中具有可学习参数的层（卷积层Conv2d，全连接层Linear）放在构造函数<code class="highlighter-rouge">__init__</code>中。</li>
+  <li>实现网络类的<code class="highlighter-rouge">forward()</code>函数，进行前向传播。此处流程为 卷积-&gt;ReLU-&gt;最大池化-&gt;卷积-&gt;ReLU-&gt;最大池化-&gt;全连接层-&gt;ReLU-&gt;全连接层-&gt;ReLU-&gt;全连接层。</li>
+  <li><code class="highlighter-rouge">x.view(x.sizer()[0], -1)</code>将x reshape为括号中的形状。其中<code class="highlighter-rouge">-1</code>为自适应，保持变化前后元素相等。</li>
+</ol>
+
+<h2 id="定义损失函数和优化器">定义损失函数和优化器</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">optim</span>
+<span class="n">criterion</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">momentum</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+</code></pre></div></div>
+<ol>
+  <li>一般用criterion变量表示损失函数，评价标准，对的。</li>
+  <li>将Net实例化为net后，<code class="highlighter-rouge">net.parameters()</code>可以返回所有的可学习参数，<code class="highlighter-rouge">net.name_parameters()</code>可以返回参数名称和参数。</li>
+  <li>这是将两个类实现为各自的实例。</li>
+</ol>
+
+<h2 id="训练网络">训练网络</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>  
+    
+    <span class="n">running_loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">trainloader</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">Variable</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+        
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        
+        <span class="n">outputs</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+        <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>   
+        
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        
+        <span class="n">running_loss</span> <span class="o">+=</span> <span class="n">loss</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2000</span> <span class="o">==</span> <span class="mi">1999</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">'[</span><span class="si">%</span><span class="s">d, </span><span class="si">%5</span><span class="s">d] loss: </span><span class="si">%.3</span><span class="s">f'</span> \
+                  <span class="o">%</span> <span class="p">(</span><span class="n">epoch</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">running_loss</span> <span class="o">/</span> <span class="mi">2000</span><span class="p">))</span>
+            <span class="n">running_loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="k">print</span><span class="p">(</span><span class="s">'Finished Training'</span><span class="p">)</span>
+</code></pre></div></div>
+<ol>
+  <li><code class="highlighter-rouge">enumerate()</code>函数将可遍历的对象组合为索引序列，常用于for循环当中：<code class="highlighter-rouge">for i, data in enumerate(seq, start = 1)</code>。</li>
+  <li>这里的data是trainloader中的一个batch，并不是某一个样本，格式为<code class="highlighter-rouge">(data[], label[])</code>个数为<code class="highlighter-rouge">batch_size</code>个。</li>
+  <li><code class="highlighter-rouge">optimizer.zero_grad()</code>与<code class="highlighter-rouge">net.zero_grad()</code>作用相同，清空梯度值。</li>
+  <li><code class="highlighter-rouge">out = net(inputs)</code>可以实现前向传播，注意输入必须转换为Variable才会有自动求导功能！</li>
+  <li>由损失函数开始向后铺开反向传播。</li>
+  <li><code class="highlighter-rouge">optimizer.step()</code>可以更新参数，其中<code class="highlighter-rouge">optimizer</code>为刚才创建的优化器对象，其中已经指定了所有的可学习参数。</li>
+  <li><code class="highlighter-rouge">running_loss += loss.data[0]</code>，上一步的<code class="highlighter-rouge">loss</code>计算出以后是Variable变量，<code class="highlighter-rouge">loss.data</code>是一个Tensor，而<code class="highlighter-rouge">loss.data[0]</code>是一个Python数字。</li>
+  <li>每2000步输出一个loss的均值，然后清零。</li>
+</ol>
+
+<h2 id="在测试集某batch上的效果">在测试集某batch上的效果</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">dataiter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">testloader</span><span class="p">)</span>
+<span class="n">data</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="n">dataiter</span><span class="o">.</span><span class="nb">next</span><span class="p">()</span>
+<span class="k">print</span><span class="p">(</span><span class="s">'实际的label：'</span><span class="p">,</span> <span class="s">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s">'</span><span class="si">%08</span><span class="s">s'</span> <span class="o">%</span><span class="n">classes</span><span class="p">[</span><span class="n">labels</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)))</span>
+<span class="n">outputs</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">Variable</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+<span class="n">_</span><span class="p">,</span> <span class="n">predicted</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="nb">max</span><span class="p">(</span><span class="n">outputs</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ol>
+  <li><code class="highlighter-rouge">tensor.max(outputs.data, 1)</code>：首先outputs是一个Variable，取他的Tensor部分。若为<code class="highlighter-rouge">max(outputs)</code>则只返回一个最大的数字，后面加上参数<code class="highlighter-rouge">1</code>则取每行的参数最大值，这个函数返回两个值，第一个是每行的最大值组成的tensor，第二个是每行的最大值所在位置的索引组成的tensor。我们往往使用第二个返回值。</li>
+  <li>labels是一个generator变量，这里的输出方式留个坑，后面填。</li>
+</ol>
+
+<h2 id="测试集上的总效果">测试集上的总效果</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">correct</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">testloader</span><span class="p">:</span>
+    <span class="n">images</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">data</span>
+    <span class="n">outputs</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">Variable</span><span class="p">(</span><span class="n">images</span><span class="p">))</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">predicted</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="nb">max</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">+=</span> <span class="n">labels</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">correct</span> <span class="o">+=</span> <span class="p">(</span><span class="n">predicted</span> <span class="o">==</span> <span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="nb">sum</span><span class="p">()</span>
+<span class="k">print</span><span class="p">(</span><span class="s">'10000张测试图片中的准确率为：</span><span class="si">%</span><span class="s">d </span><span class="si">%%</span><span class="s">'</span> <span class="o">%</span> <span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">correct</span> <span class="o">/</span> <span class="n">total</span><span class="p">))</span>
+</code></pre></div></div>
+<ol>
+  <li>testloader中每一个元素为一个形如<code class="highlighter-rouge">(data[batch_size], label[batch_size])</code>的元组，凡是与<code class="highlighter-rouge">dataloader</code>相关的都是以batch为单位。</li>
+  <li><code class="highlighter-rouge">(predicted == labels)</code>返回一个形如<code class="highlighter-rouge">[0, 1, 1, 0]</code>的Tensor，置位处为判断正确的样本。</li>
+</ol>
+:ET

@@ -1,0 +1,134 @@
+I"{D<p>Tutorials到这里换了一个作者，画风大变。</p>
+
+<h1 id="概念">概念</h1>
+
+<p>训练一个RNN网络来判断一个名字是属于哪种语言的。</p>
+
+<h1 id="数据读取">数据读取</h1>
+
+<p>建立一个dict，以<strong>{language1: [name1, name2, …], language2…}</strong>的形式保存所有名字与对应的类别。牵扯到一些文件操作。</p>
+
+<p>欧洲一些姓氏中有特殊的字符，为了使问题简单一些，都转化为ASCII形式。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">unicodedata</span>
+<span class="kn">import</span> <span class="nn">string</span>
+
+<span class="n">all_letters</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">ascii_letters</span> <span class="o">+</span> <span class="s">" .,;'"</span>
+<span class="n">n_letters</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_letters</span><span class="p">)</span>
+
+<span class="c1"># Turn a Unicode string to plain ASCII, thanks to http://stackoverflow.com/a/518232/2809427
+</span><span class="k">def</span> <span class="nf">unicodeToAscii</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s">''</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s">'NFD'</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">category</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">!=</span> <span class="s">'Mn'</span>
+        <span class="ow">and</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">all_letters</span>
+    <span class="p">)</span>
+
+<span class="k">print</span><span class="p">(</span><span class="n">unicodeToAscii</span><span class="p">(</span><span class="s">'Ślusàrski'</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">unicodedata.normilize()</code>用来将一个字符串转化为罗马字母+特殊符号的组合list，注意不可以并排输出，否则没变化。后面的<code class="highlighter-rouge">category()</code>用来除掉特殊符号。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">unicode_literals</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">division</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="nb">open</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="k">def</span> <span class="nf">findFiles</span><span class="p">(</span><span class="n">path</span><span class="p">):</span> <span class="k">return</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<span class="n">category_lines</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">all_categories</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="c1"># Read a file and split into lines
+</span><span class="k">def</span> <span class="nf">readLines</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s">'utf-8'</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">'</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">unicodeToAscii</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">findFiles</span><span class="p">(</span><span class="s">'data/names/*.txt'</span><span class="p">):</span>
+    <span class="n">category</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filename</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">all_categories</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">category</span><span class="p">)</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">readLines</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="n">category_lines</span><span class="p">[</span><span class="n">category</span><span class="p">]</span> <span class="o">=</span> <span class="n">lines</span>
+
+<span class="n">n_categories</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_categories</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">open().read().strip().split('\n')</code>打开文件 -&gt; 读取所有内容 -&gt; 去掉首尾空白符 -&gt; 按换行符划分。</p>
+
+<h1 id="name---tensor">Name -&gt; Tensor</h1>
+
+<p>转化为矩阵形式作为输入。这里对字母用的one-hot编码，每个名字形如[len, 1, n_letters]的矩阵。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="k">def</span> <span class="nf">letterToIndex</span><span class="p">(</span><span class="n">letter</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">all_letters</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">letter</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">letterToTensor</span><span class="p">(</span><span class="n">letter</span><span class="p">):</span>
+    <span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_letters</span><span class="p">)</span>
+    <span class="n">tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">letterToIndex</span><span class="p">(</span><span class="n">letter</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">tensor</span>
+
+<span class="k">def</span> <span class="nf">lineToTensor</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+    <span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_letters</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">li</span><span class="p">,</span> <span class="n">letter</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+        <span class="n">tensor</span><span class="p">[</span><span class="n">li</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">letterToIndex</span><span class="p">(</span><span class="n">letter</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">tensor</span>
+</code></pre></div></div>
+
+<h1 id="定义网络">定义网络</h1>
+
+<p><strong>对于普通RNN网络的输出是很灵活的，在AK的文章里把输出定义为y=W*h，即经过tanh为activation的普通FC层输出的隐状态再经过一层FC；在Colah文章里提到，标准RNN把隐状态h=tanh(W*input+b)直接作为输出，LSTM网络的输出也是每次的隐状态h；而在这里，作者将输出用softmax(W*[input, hidden])来表示，即经过一个与普通hidden对称（相似）的运算得到另一种意义上的隐状态，再经过softmax。所以看待RNN时，注意力放在hidden_state的运算过程就好了，输出有多种不同的处理方法。</strong></p>
+
+<p><strong>在维度上，根据Colah来看，输出就是hidden_size。但是此处的RNN更像是DIY的，所以不一样。</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="n">nn</span>
+
+<span class="k">class</span> <span class="nc">RNN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">output_size</span><span class="p">):</span>
+		<span class="nb">super</span><span class="p">(</span><span class="n">RNN</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">hidden_size</span> <span class="o">=</span> <span class="n">hidden_size</span>
+
+		<span class="bp">self</span><span class="o">.</span><span class="n">i2h</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">input_size</span><span class="o">+</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">i2o</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">input_size</span><span class="o">+</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">output_size</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">softmax</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LogSoftmax</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+	<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">hidden</span><span class="p">):</span>
+		<span class="n">combined</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="nb">input</span><span class="p">,</span> <span class="n">hidden</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+		<span class="n">hidden</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">i2h</span><span class="p">(</span><span class="n">combined</span><span class="p">)</span>
+		<span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">i2o</span><span class="p">(</span><span class="n">combined</span><span class="p">)</span>
+		<span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">output</span><span class="p">,</span> <span class="n">hidden</span>
+
+	<span class="k">def</span> <span class="nf">initHidden</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_size</span><span class="p">)</span>
+
+<span class="n">n_hidden</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="n">rnn</span> <span class="o">=</span> <span class="n">RNN</span><span class="p">(</span><span class="n">n_letters</span><span class="p">,</span> <span class="n">n_hidden</span><span class="p">,</span> <span class="n">n_categories</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>从不同作者写的代码里可以看出很多不同的想法：</p>
+<ol>
+  <li>构造函数中都要有hidden_state初始化的函数，这个函数在每个epoch开始时被调用以更新hidden_state。之前的作者用LSTM网络直接返回一个(hidden, cell)的向量。相同之处是都用0初始化即可。</li>
+  <li>这个作者喜欢将LogSoftmax当作网络的一层来定义，之前的作者喜欢在前向传播中将其作为函数使用。注意网络是首字母大写的形式，而函数是以下划线分隔的。相同之处是都用log_softmax+NLLLoss。</li>
+  <li>这个RNN类叫做rnn_cell更合适，因为它本身没涉及到循环操作，需要我们在训练过程中自己循环。</li>
+</ol>
+
+<p>这里注意一些切片的方法，一个tensor按照tensor[n]的方式取某个维度后会<code class="highlighter-rouge">降维</code>，二维会变成一维，而在进行<code class="highlighter-rouge">torch.cat((tensor1, tensor2), dim=n)</code>时，是沿着维度n来连接，比如n是1，那就是一列一列的往右排，连接起来。这里的背景中，每行作为一个输入，是按照列来拼接的，所以cat的第二个参数是1。</p>
+
+<p>demo中在cat时用的是(input[0], hidden)，注意作者在构建input时是(time_step, batch_size, input_size)这样的形式，而morvan喜欢将batch放在第一个，各有利弊。作者这种写法，可以方便的用input[n]的方式来进行批训练，将每一个batch的第n步降维合成一个tensor，而在batch_size_first的形式中，就要进行input[:, n, :]这样稍微复杂一点的切片操作。</p>
+
+<h1 id="辅助函数">辅助函数</h1>
+
+<h2 id="从softmax输出中确定类别">从Softmax输出中确定类别</h2>
+
+<p><code class="highlighter-rouge">torch.topk(tensor, num)</code>或者<code class="highlighter-rouge">tensor.topk(num)</code>返回前num个最大的值和对应的坐标，是两个一维的tensor。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">categoryFromOutput</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
+    <span class="n">top_n</span><span class="p">,</span> <span class="n">top_i</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">category_i</span> <span class="o">=</span> <span class="n">top_i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">all_categories</span><span class="p">[</span><span class="n">category_i</span><span class="p">],</span> <span class="n">category_i</span>
+
+<span class="k">print</span><span class="p">(</span><span class="n">categoryFromOutput</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p>tensor[n]还是一个tensor，而<code class="highlighter-rouge">.item()</code>将其转化为int，可以作为下面的索引了。整个函数返回类别和类别对应的编号。</p>
+:ET

@@ -1,0 +1,68 @@
+I"�<p>A paper from Facebook AI Research.</p>
+
+<h2 id="abstract">Abstract</h2>
+
+<ol>
+  <li>Collected a 300k dataset of human-written <strong>stories paired with writing prompts</strong>.</li>
+  <li>Hierarchy generation: <strong>first generate a writing prompt(sentence), then transform it to text</strong>.</li>
+  <li><strong>Model fusion</strong> improves <strong>relevance</strong> of prompt and story.</li>
+  <li>Add a <strong>gated multi-scale self-attention</strong> mechanism to <strong>model long context</strong>.</li>
+</ol>
+
+<h2 id="overview">Overview</h2>
+
+<p>Conventional language model generates on a <strong>strictly-word-by-word basis</strong>, which can not explicitly make a high-level plan.</p>
+
+<p>First, we generate the prompt/premise using <strong>a convolutional language model.</strong></p>
+
+<p>Second, we use <strong>a convolutional seq2seq model</strong> to generate a story that follows the premise.</p>
+
+<h2 id="gated-multi-scale-self-attention">Gated multi-scale self-attention</h2>
+
+<p>CNN can only model a <strong>bounded context windows</strong>. To model long-range context, authors supplyment the <strong>decoder</strong> with <strong>a self-attention machanism</strong>.</p>
+
+<p>⚠️only <strong>decoder</strong> is supplymented with self-attention.</p>
+
+<p><img src="/img/convselfattn.png" alt="" /></p>
+
+<h3 id="glu">GLU</h3>
+
+<p>GLU(Gated Linear Unit) is a new <strong>activation function</strong>:
+<script type="math/tex">h _ { l } ( \mathbf { X } ) = ( \mathbf { X } * \mathbf { W } + \mathbf { b } ) \otimes \sigma ( \mathbf { X } * \mathbf { V } + \mathbf { c } )</script>
+The second term on RHS of the equation is the <strong>Gate Unit</strong>. And do <strong>element-wise</strong> multiplication like in LSTM.</p>
+
+<h3 id="gated-attention">Gated attention</h3>
+
+<p>Authors use multi-head attention and the (Q, K, V) are generated **by deep NN with GLU **(not just linear projection) where input is hidden state.</p>
+
+<h3 id="multi-scale-attention">Multi-Scale Attention</h3>
+
+<p>The input to each head is <strong>downsampled</strong> a different amount. The first head sees the full input, the second every other input timestep, the third every third input timestep. This is so-called <strong>multi-scale.</strong></p>
+
+<h2 id="model-fusion">Model fusion</h2>
+
+<p>Model fusion was first proposed in paper “On Using Monolingual Corpora in Neural Machine Translation” to improve the performance of translation system.</p>
+
+<p><img src="/img/modelfusion.png" alt="" /></p>
+
+<p>Seq2seq model and language model were <strong>independently pretrained</strong> in shallow/deep fusion.</p>
+
+<p>Cold fusion was proposed in “Cold Fusion: Training Seq2Seq Models Together with Language Models” to imporve deep fusion by <strong>training a seq2seq model from scratch together with a fixed pretrained language model</strong>.</p>
+
+<p>In this paper, authors train a seq2seq model that has access to a pretrained seq2seq model(on the same dataset), which reduces the problem seq2seq degenerating into a LM.
+<script type="math/tex">% <![CDATA[
+\begin{aligned} g _ { t } & = \sigma \left( W \left[ h _ { t } ^ { \text { Training } } ; h _ { t } ^ { \text { Pretrained } } \right] + b \right) \\ h _ { t } & = g _ { t } \circ \left[ h _ { t } ^ { \text { Training } } ; h _ { t } ^ { \text { Pretrained } } \right] \end{aligned} %]]></script>
+ Here follows a diagram of fusion model:</p>
+
+<p><img src="/img/fusion.png" alt="" /></p>
+
+<ul>
+  <li>To improve over the pre-trained model, the second model must focus on the link between the prompt and the story.</li>
+  <li>
+    <p>Doing so can be seen as a type of <strong>boosting or residual</strong> learning that allows the second model to <strong>focus on what the first model failed to learn</strong>—such as conditioning on the prompt.</p>
+  </li>
+  <li>Use model <strong>ensemble</strong> as a baseline, which simply compute a weighted sum over different models.</li>
+</ul>
+
+<p><img src="/img/ensemble.png" alt="" /></p>
+:ET

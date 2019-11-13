@@ -1,0 +1,118 @@
+I"{<h1 id="sgd">SGD</h1>
+
+<p>模型学习过程就是<strong><em>确定参数</em></strong>的过程，<strong><em>对于某个参数的导数（多个导数组成梯度），指向误差增加最快方向</em></strong>。所以向梯度<strong><em>相反的方向</em></strong>更新。</p>
+
+<ol>
+  <li>梯度下降法：利用<strong><em>全部样本</em></strong>，前向传播，计算梯度后更新参数。</li>
+  <li>随机梯度下降：利用<strong><em>一个样本</em></strong>，更快。</li>
+  <li>mini-batch梯度下降：中和前两种，每次用一个batch的数据更新。</li>
+</ol>
+
+<p>由于每次使用不同批量的样本，也就避免了陷入局部最小值。</p>
+
+<h1 id="bn--ln">BN &amp; LN</h1>
+
+<h1 id="反向传播">反向传播</h1>
+
+<p>定义了网络之后，网络中的参数都是求导的对象，是leaf node，requires_grad=True。而我们是不必对输入求导的，只不过输入输出和网络参数进行了运算，所以在求梯度的时候会用到他们的值。</p>
+
+<p>只对需要更新的参数求导，这些参数构成我们的网络。</p>
+
+<p>要不要求导，和是不是Leaf node没有关系，网络参数和输入输出都是leaf node，但是我们不需要对输入求导。执行backward的过程，就是从结果变量开始，往后推，给每个requires_grad的leaf_node的grad位置都填上对应的梯度数据，虽然输入也是leaf node但我们不需要他的导数（虽然也可以求），所有中间经过变量的导数在运算中会得到，但是不会保存，计算完后即消失，想留住需要hook。</p>
+
+<h1 id="lm--conditional-lm">LM &amp; Conditional LM</h1>
+
+<h2 id="concept">Concept</h2>
+
+<p>由前n-1个词预测第n个词的网络，就是LM。一个简单的RNN单元(without encoder)即为一个LM。诸如翻译模型，对话系统等都是Conditional LM，即计算第n个词时除了要关注前n-1个词，确保这句话是流畅的语言，还需要关注一个encoder得来的条件X，在翻译中是源句，在问答中是问题，以确保生成的语言与前文是相关的。</p>
+
+<h2 id="perplexity">Perplexity</h2>
+
+<p>The final common measure of language model accuracy is <strong><em>perplexity</em></strong>, which is defined as the exponent of the average negative log likelihood per word:</p>
+
+<p>​							<script type="math/tex">\operatorname { ppl } \left( \mathcal { E } _ { \text { test } } ; \theta \right) = e ^ { - \left( \log P \left( \mathcal { E } _ { \text { test } } ; \theta \right) \right) / \text { length } \left( \mathcal { E } _ { \text { test } } \right) }</script></p>
+
+<p>An intuitive explanation of the ppl is “how confused is the model about its decision?” More accurately, it expresses the value “<strong><em>if we randomly picked words from the probability distribution calculated by the language model at each time step, on average how many words would it have to pick to get the correct one?</em></strong>” PPL value is always bigger, making the differences in models more easily perceptible by the human eye.</p>
+
+<h1 id="参数初始化">参数初始化</h1>
+
+<h2 id="对称初始化包括全0">对称初始化(包括全0)</h2>
+
+<p>会导致每个神经元输出结果相同，BP之后仍然相同，所以无论训练多少轮，每个神经元weight都相同，无法学习到不同的特征。</p>
+
+<h2 id="太大太小">太大/太小</h2>
+
+<p>初始化太大，会导致数据进入激活函数的<strong>饱和区</strong>，反向传播时梯度消失，尤其是sigmoid/tanh。</p>
+
+<p>太小的话，同样会进入饱和区，但是除了sigmoid/tanh外，太小也会影响ReLU。</p>
+
+<p><a href="https://zhuanlan.zhihu.com/p/62850258">知乎详解</a></p>
+
+<h2 id="kaiming">Kaiming</h2>
+
+<h2 id="xavier">Xavier</h2>
+
+<h1 id="激活函数">激活函数</h1>
+
+<p><img src="/Users/danyliu/myblog/static/img/activation.png" alt="" /></p>
+
+<h2 id="为什么使用激活函数">为什么使用激活函数</h2>
+
+<p>普通的WX这种矩阵运算只能拟合出<strong>线性函数</strong>，为了<strong>增加非线性因素</strong>，所以使用激活函数。</p>
+
+<h2 id="sigmoidtanh">Sigmoid/TanH</h2>
+
+<p>早期的激活函数选择往往是Sigmoid，Tanh，它们的特点是：</p>
+
+<ol>
+  <li><strong>输出范围是有限的</strong>，这样对于较大的输入值也会有稳定的输出，但是带来了<strong>饱和区区分度不强的问题</strong>。</li>
+  <li>在正负无穷处<strong>梯度消失</strong>，反向传播时梯度为0。</li>
+  <li>有一些expensive的操作，例如指数。</li>
+</ol>
+
+<p>⚠️有些函数<strong>导数与自身函数值有关系</strong>，所以输出要局限在一定范围，太大则会梯度爆炸。</p>
+
+<h3 id="现在的用处">现在的用处</h3>
+
+<p>Sigmoid的输出在(0, 1)之间的特性使得它可以用来做<strong>门控单元</strong>（例如LSTM中）。</p>
+
+<h2 id="relu">ReLU</h2>
+
+<p>在x&gt;0时导数恒为1，再大的输入也不会饱和，所以<strong>解决了梯度消失问题</strong>，<strong>计算简单且快（导致收敛快），且没有饱和区，对于很大的输入也会有很大的反应，区分度强</strong>。</p>
+
+<p>但是在x&lt;0的时候也会出现梯度消失的问题。所以有了Leaky ReLU等其他的变种，但是增加了网络参数。</p>
+
+<p>但是x&lt;0不激活，相当于一种dropout，学习到的特征更加<strong>稀疏</strong>，使模型具有更好的鲁棒性，反而是好事。</p>
+
+<h3 id="配合初始化">配合初始化</h3>
+
+<p>如果参数初始化不恰当，容易使得ReLU的输入值大部分为负，梯度全部为0，发生DEAD ReLU现象。</p>
+
+<p>所以配合恰当的参数初始化，例如配合Xavier。</p>
+
+<h1 id="学习率">学习率</h1>
+
+<h2 id="warm-up">Warm up</h2>
+
+<p>在Large Batch Size训练的初始阶段，下降方向是不稳定的，所以要使用warm up来慢慢增大。</p>
+
+<h2 id="decay">Decay</h2>
+
+<p>后面慢慢稳定下来，为了更精确的接近极值点，缩小步长。</p>
+
+<h1 id="语言模型">语言模型</h1>
+
+<h2 id="训练阶段">训练阶段</h2>
+
+<p>Batch train时输入(batch, time-step, embed-size)实际每一步是做切片[:, 0, :]取该时间步的一个词（带上batch）输入的，时间复杂度还是O(N)，只不过同时进行多句（batch）。</p>
+
+<p>实际上也是one-by-one生成。</p>
+
+<h2 id="预测阶段">预测阶段</h2>
+
+<p>严格的one-by-one，但是没有ground-truth了，必须要用生成的上一个词。</p>
+
+<h2 id="teacher-forcing">Teacher Forcing</h2>
+
+<p>在PyTorch实现的RNN中，我们一次性喂入(batch, time-step, embed-size)数据时就默认了teacher-forcing，每一时间步的输入都是ground-truth的。</p>
+:ET

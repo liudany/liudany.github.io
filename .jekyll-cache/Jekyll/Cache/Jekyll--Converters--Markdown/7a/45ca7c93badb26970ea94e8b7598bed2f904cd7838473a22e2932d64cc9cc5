@@ -1,0 +1,26 @@
+I"D<p>快要放国庆节啦，开心！</p>
+
+<p>最近实现seq2seq with attention的时候看到这样一句话：</p>
+
+<blockquote>
+  <p>“Teacher forcing” is the concept of using the real target outputs as each next input, instead of using the decoder’s guess as the next input. Using teacher forcing causes it to converge faster but when the trained network is exploited, it may exhibit instability.</p>
+</blockquote>
+
+<p>在<a href="http://ieeexplore.ieee.org/document/6795228/">A Learning Algorithm for Continually Running Fully Recurrent Neural Networks, 1989.</a>中有如下定义：</p>
+
+<blockquote>
+  <p>An interesting technique that is frequently used in dynamical supervised learning tasks is to replace the actual output y(t) of a unit by the teacher signal d(t) in subsequent computation of the behavior of the network, whenever such a value exists. We call this technique teacher forcing.</p>
+</blockquote>
+
+<p>在<a href="https://www.amazon.com/Deep-Learning-Adaptive-Computation-Machine/dp/0262035618/ref=as_li_ss_tl?ie=UTF8&amp;qid=1504054272&amp;sr=8-1&amp;keywords=Deep+Learning&amp;linkCode=sl1&amp;tag=inspiredalgor-20&amp;linkId=0f44bf7890ceb848305a60cf0ee2bcf3">Deep Learning</a> Page 372中说：</p>
+
+<blockquote>
+  <p>Teacher forcing is a procedure […] in which during training the model receives the ground truth output y(t) as input at time t + 1.</p>
+</blockquote>
+
+<p>下面这个图很形象的说明了这个问题：</p>
+
+<p><img src="/img/teacher-forcing.png" alt="" /></p>
+
+<p>简单来说就是在训练decoder的时候，用目标序列中的ground truth output来作为下一步的输入，而不是用上一步经过softmax选择出的output。不难理解为什么叫teacher forcing了，就算产生了错误的预测，模型也会强制的使用正确的预测来矫正下一时间步的预测和训练。</p>
+:ET

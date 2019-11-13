@@ -1,0 +1,219 @@
+I"
+s<p>PyTorch的nn常用法为：继承nn.Module类，扩展为自己的网络/层。</p>
+
+<h1 id="常见的神经网络">常见的神经网络</h1>
+
+<h2 id="fc全连接层">FC全连接层</h2>
+
+<p>到这还是满脑子线性回归……这里要把思路调整到正常的神经网络了，输入为<strong>features * m</strong>的矩阵。</p>
+
+<p>徒手写个全连接层试试：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Linear</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_features</span><span class="p">,</span> <span class="n">out_features</span><span class="p">):</span>
+		<span class="nb">super</span><span class="p">(</span><span class="n">Linear</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">out_features</span><span class="p">,</span> <span class="n">in_features</span><span class="p">))</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">out_features</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+	<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+		<span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span>
+</code></pre></div></div>
+
+<p>这样是实现了某种网络层，再徒手写一个三层感知机：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Perceptron</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_features</span><span class="p">,</span> <span class="n">hidden_features</span><span class="p">,</span> <span class="n">out_features</span><span class="p">):</span>
+		<span class="nb">super</span><span class="p">(</span><span class="n">Perceptron</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">layer1</span> <span class="o">=</span> <span class="n">Linear</span><span class="p">(</span><span class="n">in_features</span><span class="p">,</span> <span class="n">hidden_features</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">layer2</span> <span class="o">=</span> <span class="n">Linear</span><span class="p">(</span><span class="n">hidden_features</span><span class="p">,</span> <span class="n">out_features</span><span class="p">)</span>
+
+	<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+		<span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+		<span class="n">x</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+		<span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">x</span>
+</code></pre></div></div>
+
+<p>实现一个(3, 4, 1)的感知机实例：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">perceptron</span> <span class="o">=</span> <span class="n">Perceptron</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">V</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">perceptron</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>这里面要注意的地方：</p>
+<ol>
+  <li>无论是实现某种层还是一个网络，定义该类的时候要<strong>继承nn.Module</strong>类。</li>
+  <li>类内首先定义构造函数<strong>def __init__(self, params)</strong>，这里的参数是整个网络或者层的特性，并不包含输入。</li>
+  <li>构造函数内首先执行父类构造函数，方法有<strong>super(name, self).__init()</strong>或者<strong>nn.Module.__init__(self)</strong>。</li>
+  <li>构造函数内部，定义所有<strong>可学习的参数</strong>或<strong>网络中包含的层</strong>，注意变量前要加self，例如<strong>self.w / self.layer1</strong>。这里其实类似搭建静态图的过程，但不涉及运算。</li>
+  <li>定义前向传播函数<strong>def forward(self, x)</strong>，参数为输入。注意构造函数的参数中并没有输入参数x。</li>
+  <li>在forward中调用构造函数中的一些参数注意加<strong>self.</strong>。</li>
+  <li>实现时，网络的输入要为Variable类型，requires_grad不必置位。</li>
+  <li>前向传播时，用网络的实例直接加输入就可以，例如<strong>perceptron(x)</strong>，并不用指定调用其中的前向传播函数。</li>
+  <li>在Module中定义参数的时候用<strong>nn.Parameter(tensor)</strong>。</li>
+</ol>
+
+<h2 id="cnn和池化层">CNN和池化层</h2>
+
+<p>举例一个锐化卷积：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">input</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span><span class="n">img</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">kernel</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span><span class="o">/-</span><span class="mi">9</span>
+<span class="n">kernel</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">conv</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">bias</span> <span class="o">=</span> <span class="bp">False</span><span class="p">)</span>
+<span class="n">conv</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="n">out</span> <span class="o">=</span> <span class="n">conv</span><span class="p">(</span><span class="n">V</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
+<span class="n">to_pil</span> <span class="o">=</span> <span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+</code></pre></div></div>
+
+<ol>
+  <li>网络的输入input必须为batch，将一个样本用<strong>unsqueeze(0)</strong>的方法扩展为(1, 1, 200, 200)的维度，第一个维度为batch_size。PyTorch的网络直支持batch形式的输入。</li>
+  <li>这个卷积核据说是个锐化卷积。</li>
+  <li><code class="highlighter-rouge">nn.Conv2d(input_channels, output_channels, kernel_size, stride, padding, bias)</code></li>
+  <li>kernel是conv的一个属性，是一个Tensor数据，维度为(out_channels, in_channels, (kernel_size))。不写也可以的，上一句中已经定义了这些参数。</li>
+  <li>输出也是batch数据，要squeeze一下再画出来。</li>
+</ol>
+
+<p>池化层的例子：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pool</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">AvgPool2d</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="nb">list</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">pool</span><span class="p">(</span><span class="n">V</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
+<span class="n">to_pil</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p>注意<strong>.parameters()</strong>方法将会返回网络中所有可学习的参数，这里平均池化层没有可学习参数。</p>
+
+<h2 id="其他">其他</h2>
+
+<h3 id="全连接层-linear">全连接层 Linear</h3>
+
+<p>这里要注意PyTorch里定义的输入形式与Ng讲的有出入：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="nb">input</span> <span class="o">=</span> <span class="n">V</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">linear</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ol>
+  <li><code class="highlighter-rouge">nn.Linear(input_features, output_features)</code>，第一个参数为上一层神经元数量，第二个为本层神经元数量。</li>
+  <li>特别注意input数据的形状为<strong>(batch_size, in_features)</strong>，每一行为一个数据，适应一下。</li>
+</ol>
+
+<h2 id="batchnormalization">BatchNormalization</h2>
+
+<p>先回顾一下批标准化的意义，每层的输出在经过激活函数之后，例如tanh，会映射到(-1, 1)的分布上，这样20和20000的输出在经过tanh后的差异其实并不大的，为了加强对过大过小数据的敏感性，所以我们在每层网络和激活函数之间加上批标准化层。</p>
+<h2 id="dropout">DropOut</h2>
+
+<p>随机失活，加快训练，参数为失活的概率。</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="nb">input</span> <span class="o">=</span> <span class="n">dropout</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="activation">Activation</h2>
+
+<p>PyTorch将常见的激活函数例如ReLU等也定义为层，可选一个<code class="highlighter-rouge">inplace = True</code>的参数，节省显存，不会丧失梯度，因为可以根据输出来求出。</p>
+
+<h1 id="复杂网络的其他定义方式">复杂网络的其他定义方式</h1>
+
+<p>除了继承Module类然后实现forward方法之外，还有其他方法来定义一个网络，比如<code class="highlighter-rouge">sequential</code>和<code class="highlighter-rouge">modulelist</code>。</p>
+<h2 id="sequential">Sequential</h2>
+
+<p>举个例子：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">net1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">()</span>
+<span class="n">net1</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="s">'conv'</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">net1</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="s">'bn'</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm2d</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="n">net1</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="s">'activation'</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+
+<span class="n">net2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+	<span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+	<span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span>
+	<span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
+	<span class="p">)</span>
+
+<span class="nb">input</span> <span class="o">=</span> <span class="n">V</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">net1</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+</code></pre></div></div>
+<p>注意net已经是Sequential的一个实例，这里不需要像继承Module类一样在此进行实例化，直接net1(input)即可。</p>
+
+<h2 id="modulelist">ModuleList</h2>
+
+<p>可以像List一样使用Modulist，用法为<code class="highlighter-rouge">nn.ModuleList([nn.Conv2d(3, 3, 3), nn.ReLU()])</code>，这个用法有点迷。留个坑后面填！</p>
+
+<h1 id="loss-function">Loss Function</h1>
+
+<p>PyTorch将损失函数也实现为nn.Module的子类，使用时也是先实例化，一个交叉熵的例子：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">score</span> <span class="o">=</span> <span class="n">V</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">label</span> <span class="o">=</span> <span class="n">V</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="nb">long</span><span class="p">()</span>
+<span class="n">criterion</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+</code></pre></div></div>
+<p>要注意<strong>label必须是LongTensor类型</strong>。</p>
+
+<h1 id="optimizer">Optimizer</h1>
+
+<p>这里先用之前讲的Sequential方法实现一个第一章中实现过的LeNET网络：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Net</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="nb">super</span><span class="p">(</span><span class="n">Net</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">MaxPool2d</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">MaxPool2d</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+		<span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">classifier</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+			<span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+		<span class="p">)</span>
+	<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+		<span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+		<span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">16</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span>
+		<span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">classifier</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">x</span>
+
+<span class="n">net</span> <span class="o">=</span> <span class="n">Net</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>注意Sequential方法会依次将数据通过所定义的各层网络，然后定义优化器：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">optim</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">params</span> <span class="o">=</span> <span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span> <span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+
+<span class="nb">input</span> <span class="o">=</span> <span class="n">V</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">))</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+<span class="n">output</span><span class="o">.</span><span class="n">backward</span><span class="p">(</span><span class="n">output</span><span class="p">)</span> <span class="c1"># fake backward
+</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</code></pre></div></div>
+<p>一般来说优化器配合损失函数后使用，先将损失函数反向传播，使得每个叶子结点梯度保存，然后再进行一次优化步。若要对不同的子模块指定不同的参数，方法为：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">([{</span><span class="s">'params'</span><span class="p">:</span> <span class="s">'net.features.parameters()'</span><span class="p">},</span> <span class="p">{</span><span class="s">'params'</span><span class="p">:</span> <span class="s">'net.classifier.parameters()'</span><span class="p">,</span> <span class="s">'lr'</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">}],</span> <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">)</span>
+</code></pre></div></div>
+<p>即将第优化器的第一个参数改为一个tuple，其中的元素为dict，不特别指定lr的用默认学习率。</p>
+
+<p>想要调整学习率只要新建一个optimizer就可以了，因为optimizer十分轻量级，构建开销很小。</p>
+
+<h1 id="nnfunctional">nn.functional</h1>
+
+<p>这里其实和nn.Module重合了很多部分，Module可以自动提取可以学习的参数，而Function更像是纯函数。这本书的作者建议在有可学习参数的场合用Module，例如卷积、全联接等，而类似池化层和激活层就用Functional。目前我个人觉得都用Module好像更直白一点。</p>
+
+<h1 id="初始化策略-nninit">初始化策略 nn.init</h1>
+
+<p>在我们执行<code class="highlighter-rouge">nn.Linear(3, 6)</code>时已经进行了较为合理的参数初始化，一般是不用我们自己考虑的。当我们想自己来定义一些参数初始化方式时，注意不要直接用<code class="highlighter-rouge">rand</code>类函数，极大值可能会导致梯度爆炸和梯度消失。</p>
+
+<p><code class="highlighter-rouge">nn.init</code>模块专门为初始化设计，方法为先实例化网络，再用init初始化其参数：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">xavier_normal</span><span class="p">(</span><span class="n">linear</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+</code></pre></div></div>
+<h1 id="深入讨论">深入讨论</h1>
+
+<p>这里作者讲了很多Module类的构造函数的原理，挑几个重要的记下来：</p>
+<ol>
+  <li>有很多在训练和测试阶段行为差距较大的层，如Dropout，BatchNorm，训练的时候应该是开启的，但是测试时应该关闭，所以要用<code class="highlighter-rouge">model.train()</code>函数和<code class="highlighter-rouge">model.eval()</code>函数来设置training属性，前者全True，后者全False。</li>
+  <li>保存模型的方法为：<code class="highlighter-rouge">t.save(net.state_dict(), 'net.pth')</code>，载入模型的方法为：先实例化一个网络，然后导入参数<code class="highlighter-rouge">net2.load_state_dict(t.load('net.pth'))</code>。</li>
+  <li>模型搬到GPU运行的方法：<code class="highlighter-rouge"><span class="k">model</span> <span class="p">=</span> <span class="k">model</span><span class="p">.</span><span class="n">cuda</span><span class="p">(),</span> <span class="n">input</span> <span class="p">=</span> <span class="n">input</span><span class="p">.</span><span class="n">cuda</span><span class="p">()</span></code>。</li>
+  <li>GPU并行计算的方法：<code class="highlighter-rouge">nn.parallel.data_parallel(module, inputs, device_ids, output_device, dim, module_kwargs)</code>。</li>
+</ol>
+:ET

@@ -128,8 +128,6 @@ ITN又分为三个，European Training Networks (ETN)，European Industrial Doct
 
 ## 会议
 
-
-
 |                          Conference                          | Abstarct Submission | Paper Submission | Rebuttle | Notification |      Hold      |
 | :----------------------------------------------------------: | :-----------------: | :--------------: | :------: | :----------: | :------------: |
 |              [INLG](https://www.inlg2019.com/)               |       July 5        |     July 12      |    -     |    Sept 1    |  Oct 29, 2019  |
@@ -204,7 +202,7 @@ Ivan Titov
 | ---------- | ------------------- | ---------------- | -------- |
 | AACL       | June/July, 2020     | Dec 4-7, 2020    | Suzhou   |
 | EMNLP      | May/June, 2020      | Nov 1, 2020      | 多米尼亚 |
-| COLING     | Mar/April, 2020     | Sept 13-18, 2020 | 巴塞罗那 |
+| COLING     | April 8, 2020       | Sept 13-18, 2020 | 巴塞罗那 |
 
 AACL 微博abuse在线监测
 

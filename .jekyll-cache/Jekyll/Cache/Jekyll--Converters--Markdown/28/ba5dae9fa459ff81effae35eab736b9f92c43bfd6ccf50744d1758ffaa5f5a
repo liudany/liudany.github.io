@@ -1,0 +1,50 @@
+I"<p>Convolutional Sequence to Sequence Learnin from Facebook.</p>
+
+<h2 id="intro">Intro</h2>
+
+<ol>
+  <li>Although convolution creates representations for <strong>fixed-size context</strong>, we could make it larger by <strong>stacking  serveral layers</strong> on top of each other.</li>
+  <li>This multi-layer structure create <strong>hierarchy representations</strong> over input sequence, where <strong>nearby input elements(tokens) interact at lower layers while distant element interact at higer layers</strong>.</li>
+  <li>Hierarchy structure provides <strong>a shorter path(O(N/k))</strong> to capture long distance dependencies than RNN(O(N)).</li>
+  <li>Proposed model is equipped with <strong>GLU, residual connection and attention</strong> in decoder layer.</li>
+</ol>
+
+<h2 id="position-embedding">Position Embedding</h2>
+
+<p>To equip the model with <strong>a sence of order</strong> by embedding the <strong>absolute position</strong> of input element.</p>
+
+<p>Specifically, the position embedding is <strong>added</strong> to the word embedding both in encoder and decoder.</p>
+
+<h2 id="convolutional-block-structure">Convolutional Block Structure</h2>
+
+<h3 id="block-structure">Block Structure</h3>
+
+<p>Both encoder and decoder are of <strong>block/layer structure</strong>. Each block contains a 1d convolution and followed by a non-linearity(GLU).</p>
+
+<h3 id="non-linearity">Non Linearity</h3>
+
+<p>The number of output channel(kernel) is 2d where d is the embedding size. Then 2d is divided into [d, d] for GLU calculation:
+<script type="math/tex">v ( [ A, B ] ) = A \otimes \sigma ( B )</script></p>
+
+<h3 id="residual">Residual</h3>
+
+<p>Residual connections** are supplemented in every block to enable deep convolutional networks.</p>
+
+<h3 id="padding">Padding</h3>
+
+<p>For each encoder block, we ensure the <strong>output length matches the input length</strong> by padding the input.</p>
+
+<p>For each decoder block, we have to take care that <strong>no future information is available</strong> for decoder.</p>
+
+<h2 id="multistep-attention">Multistep Attention</h2>
+
+<p>First we combine the hidden state hi <strong>and previous target element</strong> gi(层数多了以后原始信息少，所以加gi):
+<script type="math/tex">d _ { i } ^ { l } = W _ { d } ^ { l } h _ { i } ^ { l } + b _ { d } ^ { l } + g _ { i }</script>
+Second compute the attention(score) by dot-product function between di and encoder final output z:
+<script type="math/tex">a _ { i j } ^ { l } = \frac { \exp \left( d _ { i } ^ { l } \cdot z _ { j } ^ { u } \right) } { \sum _ { t = 1 } ^ { m } \exp \left( d _ { i } ^ { l } \cdot z _ { t } ^ { u } \right) }</script>
+Then we compute a weighted sum of encoder output z <strong>as well as input element embeddings e</strong>(同样为了增加原始信息类似残差):
+<script type="math/tex">c _ { i } ^ { l } = \sum _ { j = 1 } ^ { m } a _ { i j } ^ { l } \left( z _ { j } ^ { u } + e _ { j } \right)</script>
+Once c has been computed, <strong>it is simply added to hi</strong>.</p>
+
+<p><img src="/img/convseq2seq.png" alt="" /></p>
+:ET

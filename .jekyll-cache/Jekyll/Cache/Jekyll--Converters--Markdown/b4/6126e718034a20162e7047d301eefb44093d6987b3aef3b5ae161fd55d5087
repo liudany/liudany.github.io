@@ -1,0 +1,129 @@
+I"KN<p>继续官方tutorials系列。</p>
+
+<h1 id="概念">概念</h1>
+
+<p>特别注意LSTM输出维度的意义。输入为3D Tensor。例如，每句话有5个单词，每个词向量维度为10，batch-size即句子数为3，则LSTM的输入维度应该是(5, 3, 10)。如果认为mini-batch大小为1的话，这个维度跟embedding的维度记法是相同的，每行一个词，列数为一个词的维度。</p>
+
+<p>hidden_state就是output，从cell_state中来。</p>
+
+<h1 id="quick-example">Quick Example</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">lstm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LSTM</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)]</span>
+<span class="c1"># initialize the hidden state
+</span><span class="n">hidden</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+		  <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="c1"># 方法一：逐词输入
+</span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
+	<span class="n">out</span><span class="p">,</span> <span class="n">hidden</span> <span class="o">=</span> <span class="n">lstm</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">hidden</span><span class="p">)</span>
+
+<span class="c1">#方法二：Vectorize 一次性
+</span><span class="n">inputs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">hidden</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">out</span><span class="p">,</span> <span class="n">hidden</span> <span class="o">=</span> <span class="n">lstm</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">hidden</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ol>
+  <li><code class="highlighter-rouge">nn.LSTM(input_dim, hidden_dim, num_layers)</code>，层数默认为1，可以省略。</li>
+  <li>LSTM的output形状与层数无关，与输入序列长度有关。层数是以上一层输出作为输入的stacked堆叠。</li>
+  <li>LSTM的输入为<code class="highlighter-rouge">(input, (h_0, c_0))</code>，若没给出h_0和c_0，则默认初始化为0，注意要给就全给，要不就全不给。此处的hidden是形如(h_0, c_0)的包含隐状态和细胞状态的综合输入，其中h_0和c_0的维度与lstm输出维度类似，第二维是batch_size，第三维为隐藏层的size。<strong>h_i和c_i是同形的，这一点从LSTM工作原理的门操作也可以知道。</strong></li>
+  <li>最完整的输出应该为<strong>(outputs, (hidden, cell))</strong>，其中后一个tuple为最后一个时刻的隐状态和细胞状态。取出的方法有<code class="highlighter-rouge">out, hidden = lstm(inputs, hidden)</code>，这样得到的hidden是一个(h_n, c_n)的tuple；或者<code class="highlighter-rouge">out, (hidden, cell) = lstm(inputs, hidden)</code>，这样unpack一下，得到三个tensor。</li>
+  <li><code class="highlighter-rouge">torch.cat(seq, dim)</code>按dim制定的维度连接几个tensor。</li>
+</ol>
+
+<h1 id="lstm-for-part-of-speech-tagging">LSTM for Part-of-Speech Tagging</h1>
+
+<h2 id="概念和方法">概念和方法</h2>
+
+<p>POS Tagging即词性标注，为句子中的每个词分类。方法为将长度为W的句子通过一个LSTM网络，得到长度为W的输出向量，再经过FC+log_softmax层，取最大的一个作为标签。</p>
+
+<h2 id="数据预处理">数据预处理</h2>
+<p>从语料中建立词典，方便后面词向量的训练；同时建立标签的字典，使其数字化。</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">prepare_sequence</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">to_ix</span><span class="p">):</span>
+	<span class="n">idxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">to_ix</span><span class="p">[</span><span class="n">word</span><span class="p">]</span> <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">seq</span><span class="p">]</span>
+	<span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">LongTensor</span><span class="p">(</span><span class="n">idxs</span><span class="p">)</span>
+
+<span class="n">training_data</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s">"The dog ate the apple"</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span> <span class="p">[</span><span class="s">"DET"</span><span class="p">,</span> <span class="s">"NN"</span><span class="p">,</span> <span class="s">"V"</span><span class="p">,</span> <span class="s">"DET"</span><span class="p">,</span> <span class="s">"NN"</span><span class="p">]),</span>
+    <span class="p">(</span><span class="s">"Everybody read that book"</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span> <span class="p">[</span><span class="s">"NN"</span><span class="p">,</span> <span class="s">"V"</span><span class="p">,</span> <span class="s">"DET"</span><span class="p">,</span> <span class="s">"NN"</span><span class="p">])</span>
+<span class="p">]</span>
+
+<span class="n">word_to_ix</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">sent</span><span class="p">,</span> <span class="n">tags</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">:</span>
+	<span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">sent</span><span class="p">:</span>
+		<span class="k">if</span> <span class="n">word</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">word_to_ix</span><span class="p">:</span>
+			<span class="n">word_to_ix</span><span class="p">[</span><span class="n">word</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">word_to_ix</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">word_to_ix</span><span class="p">)</span>
+<span class="n">tag_to_ix</span> <span class="o">=</span> <span class="p">{</span><span class="s">"DET"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"NN"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"V"</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+
+<span class="n">EMBEDDING_DIM</span> <span class="o">=</span> <span class="mi">6</span>
+<span class="n">HIDDEN_DIM</span> <span class="o">=</span> <span class="mi">6</span>
+</code></pre></div></div>
+
+<p>这里将词嵌入和隐层的维度设置的小一些，以便于观察效果。</p>
+
+<h2 id="模型定义">模型定义</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">LSTMTagger</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embedding_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">vocab_size</span><span class="p">,</span> <span class="n">tagset_size</span><span class="p">):</span>
+		<span class="nb">super</span><span class="p">(</span><span class="n">LSTMTagger</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span> <span class="o">=</span> <span class="n">hidden_dim</span>
+		<span class="c1"># 词嵌入
+</span>		<span class="bp">self</span><span class="o">.</span><span class="n">word_embedding</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">vocab_size</span><span class="p">,</span> <span class="n">embedding_dim</span><span class="p">)</span>
+		<span class="c1"># 词向量通过LSTM产生隐状态
+</span>		<span class="bp">self</span><span class="o">.</span><span class="n">lstm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LSTM</span><span class="p">(</span><span class="n">embedding_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">)</span>
+		<span class="c1"># 一个FC层，将隐状态映射到tag空间
+</span>		<span class="bp">self</span><span class="o">.</span><span class="n">hidden2tag</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">tagset_size</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">hidden</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_hidden</span><span class="p">()</span>
+
+	<span class="k">def</span> <span class="nf">init_hidden</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="k">return</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">),</span>
+				<span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">))</span>
+
+	<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+		<span class="n">embeds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">word_embedding</span><span class="p">(</span><span class="n">sentence</span><span class="p">)</span>
+		<span class="n">lstm_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lstm</span><span class="p">(</span><span class="n">embeds</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sentence</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden</span><span class="p">)</span>
+		<span class="n">tag_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden2tag</span><span class="p">(</span><span class="n">lstm_out</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sentence</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+		<span class="n">tag_socres</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">log_softmax</span><span class="p">(</span><span class="n">tag_space</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">tag_socres</span>
+</code></pre></div></div>
+
+<h2 id="训练过程">训练过程</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 实例化模型，损失函数和优化器
+</span><span class="n">model</span> <span class="o">=</span> <span class="n">LSTMTagger</span><span class="p">(</span><span class="n">EMBEDDING_DIM</span><span class="p">,</span> <span class="n">HIDDEN_DIM</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">word_to_ix</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">tag_to_ix</span><span class="p">))</span>
+<span class="n">loss_function</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">NLLLoss</span><span class="p">()</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">300</span><span class="p">):</span>
+	<span class="k">for</span> <span class="n">sentence</span><span class="p">,</span> <span class="n">tags</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">:</span>
+		<span class="n">model</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+		<span class="n">model</span><span class="o">.</span><span class="n">hidden</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">init_hidden</span><span class="p">()</span>
+
+		<span class="n">sentence_in</span> <span class="o">=</span> <span class="n">prepare_sequence</span><span class="p">(</span><span class="n">sentence</span><span class="p">,</span> <span class="n">word_to_ix</span><span class="p">)</span>
+		<span class="n">targets</span> <span class="o">=</span> <span class="n">prepare_sequence</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">tag_to_ix</span><span class="p">)</span>
+
+		<span class="n">tag_socres</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">sentence_in</span><span class="p">)</span>
+
+		<span class="n">loss</span> <span class="o">=</span> <span class="n">loss_function</span><span class="p">(</span><span class="n">tag_socres</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+		<span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+		<span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</code></pre></div></div>
+
+<h2 id="测试">测试</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+	<span class="n">inputs</span> <span class="o">=</span> <span class="n">prepare_sequence</span><span class="p">(</span><span class="n">training_data</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">word_to_ix</span><span class="p">)</span>
+	<span class="n">tag_socres</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+	<span class="k">print</span><span class="p">(</span><span class="n">tag_socres</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="总结">总结</h2>
+<ol>
+  <li>LSTM隐层需要初始化，该tutorial作者更喜欢将(h_0, c_0)联合初始化。</li>
+  <li>LSTM层输入必须3D，这里在中间增加一个表示batch_size的维度1，LSTM可以一次喂入一个句子的所有词向量，一行一个词；输出lstm_out也是三维的，中间一个维度同样表示batch_size，在喂入fc层的时候注意调整维度为二维。hidden2tag层是一个普通FC层，输入是表示隐层状态的向量，要求是一个二维的向量，每一行表示一个样本，在这里具体就是每一步的隐层状态；输出也是每行一个样本，共有tag_size列。log_softmax的输入可以是二维的，也是每行一个样本，<code class="highlighter-rouge">dim=1</code>表示按行来进行softmax的归一化，得到概率的形式。</li>
+  <li>网络的走向是：源句子 -&gt;(经过字典)-&gt; 词汇索引 -&gt;(作为embedding的输入)-&gt; 词向量 -&gt;(经过LSTM)-&gt; 得到输出隐状态 -&gt;(经过FC层)-&gt; 映射到tag_set的分布向量 —&gt;(softmax)-&gt; 得到预测标签</li>
+  <li>除了训练阶段之外，都用<code class="highlighter-rouge">torch.no_grad()</code>。</li>
+  <li>训练集的格式一般为<strong>[(data), tag]</strong>的形式！</li>
+  <li>开始训练时，除了网络的梯度归零之外，<strong>LSTM的隐状态也要重新初始化</strong>，这也是为什么单独把隐状态初始化写为一个函数。</li>
+</ol>
+:ET

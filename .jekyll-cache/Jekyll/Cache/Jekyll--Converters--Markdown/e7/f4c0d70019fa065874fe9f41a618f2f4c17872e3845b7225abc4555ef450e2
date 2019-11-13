@@ -1,0 +1,158 @@
+I"�8<h1 id="multi-gpu">Multi-GPU</h1>
+
+<h2 id="新的device属性">新的device属性</h2>
+
+<p>在0.4及之后的版本中，对于tensor加入了device属性，其值为<code class="highlighter-rouge">torch.device('{device_type}:{device_ordinal}')</code>类型，括号里是用引号引起的字符串制定cpu/cuda，使用cuda时也可以不制定device_ordinal，此时该参数默认为<code class="highlighter-rouge">torch.cuda.current_device()</code>，且只用一块GPU。</p>
+
+<p>之前的<code class="highlighter-rouge">get_device()</code>方法只对cuda变量生效，返回其所在的gpu编号，对cpu变量报错。但是<code class="highlighter-rouge">tensor.device</code>方法是通用的，返回其device属性。</p>
+
+<p>在创建tensor时可以直接制定其device属性：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s">'cuda:1'</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p><strong><em>此时默认的requires_grad属性是false，为什么？</em></strong></p>
+
+<h2 id="cpu和gpu转移">CPU和GPU转移</h2>
+
+<p>在0.3及之前的版本中，用<code class="highlighter-rouge">tensor/model.cuda()/.cpu()</code>方法来将数据/模型在GPU/CPU中转移。</p>
+
+<p>新版本中，使用<code class="highlighter-rouge">tensor/model.to(device)</code>方法来将数据/模型做转移，这里的device须上面提到的<code class="highlighter-rouge">torch.device</code>类型的属性变量。</p>
+
+<p><strong><em>注意to方法返回一个新的tensor而不是rewrite原来的tensor。</em></strong></p>
+
+<p>且这种方法只适用于<strong>单GPU</strong>，即将tensor/model’s parameters分配到哪一个gpu上。</p>
+
+<p><strong><em>⚠️如果只有一块GPU，使用to方法就可以了，没必要dataparallel。</em></strong></p>
+
+<h2 id="device-agnostic-code">DEVICE-AGNOSTIC CODE</h2>
+
+<p>在不确定有无GPU时，通用的代码写法。利用了<code class="highlighter-rouge">torch.cuda.is_available()</code>函数确认有无GPU可用。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># at the beginning of code
+</span><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s">'cuda'</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s">'cpu'</span><span class="p">)</span>
+<span class="o">...</span>
+
+<span class="c1"># whenever get a new tensor or module
+</span><span class="nb">input</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">MyModule</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>总结下来就是在代码开头先声明一个device变量，根据当前有无GPU可用来确定是cuda还是cpu变量。之后在引入tensor和model的时候统一使用<code class="highlighter-rouge">to(device)</code>的方法来进行迁移。</p>
+
+<h2 id="multi-gpu-parallelism">Multi-GPU Parallelism</h2>
+
+<p>根据<a href="https://pytorch.org/tutorials/beginner/blitz/data_parallel_tutorial.html#sphx-glr-beginner-blitz-data-parallel-tutorial-py">官方的一个tutorial</a>和<a href="https://pytorch.org/docs/stable/nn.html#dataparallel-layers-multi-gpu-distributed">相关源码</a>，模型多GPU并行化的一般流程是：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s">"cuda:0"</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">DataParallel</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">device_ids</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="nb">input</span><span class="o">/</span><span class="n">output</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>			<span class="c1"># 这里要注意，数据跟模型初始要在同一块卡上，一般是device_ids[0]
+</span></code></pre></div></div>
+
+<p>即先并行化模型并rewrite自身，<strong>之后再移动到<em>某一块GPU上（batch数据同样也要在这一块卡上！）</em>，然后复制为n份放到不同的GPU，同时将数据的batch维度等分为GPU数量份，也分到不同GPU上进行前向传播。反向传播时，各个复制模型的梯度累加到模型本来所在的那块GPU上进行运算</strong>。</p>
+
+<p>最重要的是<code class="highlighter-rouge">torch.nn.DataParallel(model, device_ids, output_device, dim=0)</code>函数，其参数意义：</p>
+
+<ol>
+  <li>device_ids类型为python list(例如[0, 1, 2])，默认为<code class="highlighter-rouge">torch.cuda.device_count()</code>返回GPU总数，具体来讲是<code class="highlighter-rouge">list(range(torch.duda.device_count))</code>，也是一个list。</li>
+  <li>output_device默认为device_ids[0]，即上一个参数默认的第一块。</li>
+  <li><strong><em>dim参数默认为0，即将切分第一个维度到不同的GPU，默认第一个维度为batch。由这点也要注意，在多GPU分布训练时可以适当的加大batch_size，因为会等分到各块GPU的。</em></strong></li>
+</ol>
+
+<p>要了解multi-gpu运算过程先看看DataParallel这个函数的实现，用了这些primitives(基元)，他们也可以被单独使用，都在nn.parallel下：</p>
+
+<ul>
+  <li>replicate(module, device_ids): 把模型复制到多块GPU上。</li>
+  <li>scatter(input, device_ids): 按照dim指定参数，把input分为指定的GPU数量等份。</li>
+  <li>gather(outputs, output_device): scatter的反操作，把tensor们按照dim维度合并起来。</li>
+  <li>parallel_apply(replicas, inputs): 将分解好的输入(inputs)分别送到复制好的模型(replicas)中。</li>
+</ul>
+
+<p>具体过程如下：</p>
+
+<p><img src="/img/multi-gpu1.png" alt="" /></p>
+
+<p>如图，对于devices_ids[0]这块GPU总是会多利用一些空间的，是<strong>不均衡</strong>的计算，解决方法可以看<a href="https://medium.com/huggingface/training-larger-batches-practical-tips-on-1-gpu-multi-gpu-distributed-setups-ec88c3e51255">这篇文章</a>。</p>
+
+<h1 id="else">Else</h1>
+
+<h2 id="creating-new-tensor">Creating New Tensor</h2>
+
+<p><code class="highlighter-rouge">torch.*_like(tensor)</code>将创建和tensor一样的形状/属性的新tensor，例zeros_like或者ones_like(都有s)，也可在创建时声明需要更改的属性，例如<code class="highlighter-rouge">torch.zeros_like(x, dtype=torch.int)</code>就会修改dtype属性。</p>
+
+<p><code class="highlighter-rouge">tensor.new_*(shape)</code>将返回和tensor同属性，但是形状为shape的新tensor。</p>
+
+<p><code class="highlighter-rouge">tensor.type()</code>可以返回tensor的类型，但是<code class="highlighter-rouge">type(tensor)</code>只能得到是个tensor，具体类型未知。</p>
+
+<h2 id="tensordata-vs-tensordetach">tensor.data vs tensor.detach()</h2>
+
+<p>0.4开始，Variable及autograd操作正式合入Tensor，虽然Variable(tensor)仍然可以使用，但是本质上它什么都没做。想使tensor有autograd功能，需要设置<code class="highlighter-rouge">tensor.requries_grad=True</code>，或者在生成tensor时指定其requires_grad属性。</p>
+
+<p>现在<code class="highlighter-rouge">y=x.data</code>这种操作，会得到一个与x数据相同的，requires_grad=False的新tensor，但是<strong><em>二者共享内存</em></strong>，如果此时对y进行<strong><em>inplace operation</em></strong>的话，x的值会随之改变，<strong><em>会使backward得到错误的导数</em></strong>，且程序并不会报错。</p>
+
+<p>而如果使用<code class="highlighter-rouge">y=x.detach()</code>的话，与上面的y属性相同，仍然共享内存，但是这时候如果修改了y的值导致x的值也跟着修改，就会导致在backward()函数执行时报错：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">RuntimeError</span><span class="p">:</span> <span class="n">one</span> <span class="n">of</span> <span class="n">the</span> <span class="n">variables</span> <span class="n">needed</span> <span class="k">for</span> <span class="n">gradient</span> <span class="n">computation</span> <span class="n">has</span> <span class="n">been</span> <span class="n">modified</span> <span class="n">by</span> <span class="n">an</span> <span class="n">inplace</span> <span class="n">operation</span><span class="o">.</span>
+</code></pre></div></div>
+
+<p>所以使用detach()方法是更加安全的！</p>
+
+<p><strong><em>一定要注意！我们需要参数的导数，改变模型的参数达到更好的效果！保存的也是参数对应的导数！输入输出要个🔨的导数！不需要！</em></strong></p>
+
+<h2 id="0-dimensional-tensor">0-Dimensional Tensor</h2>
+
+<p>引入0维的scalar，统一了之前版本的如下问题：</p>
+
+<ul>
+  <li>tensor[0]返回的是一个python数字，而variable[0]返回的是一个形状为(1,)的向量。</li>
+  <li>同样的，tensor.sum()返回数字，variable.sum()返回一个size(1,)的变量。</li>
+</ul>
+
+<p>0.4之后的版本<strong><em>index和sum操作的返回值都是0-dimensional tensor了</em></strong>，可以利用<code class="highlighter-rouge">torch.tensor(3.14)</code>这种方式初始化一个0维tensor，其维度.size()返回的是<code class="highlighter-rouge">torch.Size([])</code>，而一个1维的数组例如torch.tensor([3.14])其维度是torch.Size([1])。可以看出<strong><em>pytorch中维度属性都是用中括号括起来的，0维就啥都没有，1维只有一个数字，二位两个数字等等</em></strong>。</p>
+
+<p><code class="highlighter-rouge">tensor_0.item()</code>方法可以让0维tensor变成python number。</p>
+
+<h3 id="关于loss">关于Loss</h3>
+
+<p>0.3之前的版本，<strong>经过criterion得到的</strong>Loss是一个形状为(1,)的variable，但是0.4往后<strong><em>Loss是一个0维scalar</em></strong>，用上述方法操作它。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">total_loss</span> <span class="o">+=</span> <span class="n">loss</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># before 0.4 version
+</span><span class="n">total_loss</span> <span class="o">+=</span> <span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>  <span class="c1"># now
+</span></code></pre></div></div>
+
+<p>⚠️注意如果不将loss转换为python number而直接的去累积它（一个tensor），会不断的增大计算图，耗尽显存。</p>
+
+<h2 id="volatile">Volatile</h2>
+
+<p>0.4之后的版本启用了volatile，在不需要记录计算图的时候使用：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+
+<span class="ow">or</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">set_grad_enabled</span><span class="p">(</span><span class="bp">True</span><span class="o">/</span><span class="bp">False</span><span class="p">)</span>
+
+<span class="ow">or</span>
+
+<span class="n">is_train</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">set_grad_enabled</span><span class="p">(</span><span class="n">is_train</span><span class="p">):</span>
+</code></pre></div></div>
+
+<h2 id="a-diagram-from-forum">a diagram from forum</h2>
+
+<p><img src="/img/dataparallel.png" alt="" /></p>
+
+<p><a href="https://discuss.pytorch.org/t/uneven-gpu-utilization-during-training-backpropagation/36117/5">这里</a>也解释了为什么要在primary gpu上计算loss，因为<strong><em>计算 loss所需要的target tensor处在primary gpu上</em></strong>，所以需要将output汇合一下计算loss。</p>
+
+<p>之后再将loss按原来batch的分散方法返回每个gpu上，分别计算grad值，之后将所有的grad聚集到default gpu上，对模型进行参数的更新，然后重复下一轮。</p>
+
+<p><a href="https://discuss.pytorch.org/t/how-pytorchs-parallel-method-and-distributed-method-works/30349/7">另一个问题里</a>谈了为什么要将output汇合到primary gpu再计算loss，而不是scatter target到不同GPU然后分布式计算loss，<strong>他认为计算loss是个很cheap的任务，分布计算不会获得很多增益。</strong></p>
+
+<p><a href="https://erickguan.me/2019/pytorch-parallel-model">一个关于DataParallel实现细节的讨论</a></p>
+
+<ul>
+  <li>可不可以认为计算玩out之后，has nothing to do with data parallel. all depends on your code.</li>
+</ul>
+:ET

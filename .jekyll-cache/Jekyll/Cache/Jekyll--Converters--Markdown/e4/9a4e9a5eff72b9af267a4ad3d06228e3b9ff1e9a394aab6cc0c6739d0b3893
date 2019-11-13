@@ -1,0 +1,170 @@
+I"�F<p>参考这两篇博客<a href="http://mlexplained.com/2018/02/15/language-modeling-tutorial-in-torchtext-practical-torchtext-part-2/">1</a>和<a href="http://mlexplained.com/2018/02/08/a-comprehensive-tutorial-to-torchtext/">2</a>，整理了torchtext的概念和用法。是一个不错的文本预处理工具。</p>
+
+<h1 id="torchtext">Torchtext</h1>
+
+<h2 id="spacy">spacy</h2>
+
+<p>使用流程：先<code class="highlighter-rouge">spacy.load(en)</code>作为模型，之后用模型处理一段string文本，其中每个元素为token。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">spacy</span> <span class="n">download</span> <span class="n">en</span>	<span class="c1"># first download English model
+</span>
+<span class="n">spacy_en</span> <span class="o">=</span> <span class="n">spacy</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s">'en'</span><span class="p">)</span>
+<span class="n">doc</span> <span class="o">=</span> <span class="s">'hi i''m danny'</span>	<span class="c1"># 必须是string类型
+</span><span class="k">for</span> <span class="n">tok</span> <span class="ow">in</span> <span class="n">spacy_en</span><span class="p">(</span><span class="n">doc</span><span class="p">):</span>	<span class="c1"># 这里与spacy_en.tokenizer(doc)相同
+</span>  <span class="k">print</span><span class="p">(</span><span class="n">tok</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>注意tok为<code class="highlighter-rouge">spacy.Token</code>类型，调用其<code class="highlighter-rouge">.text</code>方法可以得到string类型。</p>
+
+<p>添加自定义分词的方法：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">my_tok</span> <span class="o">=</span> <span class="n">spacy</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s">'en'</span><span class="p">)</span>
+<span class="n">my_tok</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">add_special_case</span><span class="p">(</span><span class="s">"don't"</span><span class="p">,</span> <span class="p">[{</span><span class="n">ORTH</span><span class="p">:</span> <span class="s">"do"</span><span class="p">},</span> <span class="p">{</span><span class="n">ORTH</span><span class="p">:</span> <span class="s">"n't"</span><span class="p">}])</span>
+</code></pre></div></div>
+
+<h2 id="translation-task">Translation Task</h2>
+
+<p>对于翻译任务而言：</p>
+
+<h3 id="1-构造field变量">1. 构造Field变量</h3>
+
+<p>顾名思义就是语料中有几个<strong>域</strong>，不同field对应着不同的<strong>预处理方法</strong>(例如tokenizer等)。像翻译任务有source和target两个field，有如下参数：</p>
+
+<ul>
+  <li>tokenize: 是一个string-&gt;list的函数，默认为string.split，一般使用spacy构造一个函数。</li>
+  <li>sequential: 该field是不是序列数据，默认为True，若False则不应用tokenize。</li>
+  <li>fix_length: 是否将后面<strong>Iterator取出的</strong>所有样本padding到同样的固定长度，<strong>否则按照该batch最长值填充</strong>。</li>
+  <li>batch_first: 决定Iterator取出的样本第一个维度是不是batch，<strong>为假的话batch在第二个维度</strong>。</li>
+  <li>lower: 样本全部变成小写。</li>
+  <li>Init_token/eos_token/pad_token/unk_token: default None/None/<pad>/<unk>，**在查看dataset时不会出现，在Iterator取出后会添加，且eos之后再pad。**</unk></pad></li>
+  <li>use_vocab: vocab-&gt;number，如果该field都是数字类型，那么设置为false。</li>
+</ul>
+
+<h3 id="2-构建dataset">2. 构建dataset</h3>
+
+<h4 id="从文件中读取">从文件中读取</h4>
+
+<p>分为从文件中读取dataset和使用pre-build dataset两种方法。</p>
+
+<ul>
+  <li>data.TabularDataset(.splits)(): 从结构化数据(csv等)中读取，<strong>若只有一个文件那就不用.splits，参数不变，这个splits方法是同时处理train/vld/test并行读取，<em>并不是将一个文件分割成几份</em></strong>。只有这种方法是在data.下面的，其他的封装好的dataset类型都在datasets下。</li>
+  <li>datasets.TranslationDataset(path, exts, fields): path是文件公共前缀，exts是一个tuple其中包括两种语言不同的后缀名字，path+exts是完整的文件目录即可。fields也是tuple包括不同的data.Field类型。</li>
+</ul>
+
+<p>其他的例如LanguageModelingDataset构造方法都是类似，注意⚠️这里<strong><em>返回的都是data.Dataset类型变量</em></strong>。它有<code class="highlighter-rouge">data.Dataset.split()</code>方法来划分train/(vld/)test集，参数可以是一个ratio表示train的比例，此时返回两个dataset，也可以是list of relative number，三个数字则返回三个dateset。</p>
+
+<p>我们可以查看Dataset变量内部的情况，<code class="highlighter-rouge">dataset.__dict__.keys()</code>发现dataset类有两个属性，example和fields，可以使用<code class="highlighter-rouge">dataset.example/fields</code>的方法查看它们。Example即有多少样本，fields为每个样本中有几个域，翻译任务中有src和trg两个域。</p>
+
+<p>可以用<code class="highlighter-rouge">len(dataset)</code>的形式查看dataset的长度。对于translation dataset，<code class="highlighter-rouge">dataset[0]</code>返回一个Example类型，每个Example实例含有刚才fields中查看的属性，<code class="highlighter-rouge">dataset[0].__dict__</code>可以查看语对的字典，形式如下：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="s">'src'</span><span class="p">:</span> <span class="p">[</span><span class="s">'nice'</span><span class="p">,</span> <span class="s">'to'</span><span class="p">,</span> <span class="s">'meet'</span><span class="p">,</span> <span class="s">'you'</span><span class="p">],</span>
+ <span class="s">'trg'</span><span class="p">:</span> <span class="p">[</span><span class="s">'很'</span><span class="p">,</span> <span class="s">'高兴'</span><span class="p">,</span> <span class="s">'遇到'</span><span class="p">,</span> <span class="s">'你'</span><span class="p">]}</span>
+</code></pre></div></div>
+
+<p>每个样例是一个key为<code class="highlighter-rouge">src/trg</code>字典的形式，其值为tokenize之后的list。虽然dataset[0]本身是一个Example类型，但也可以<strong>通过dataset[0].src/trg</strong>直接查看这个list。<strong><em>注意这里的数据还都是raw text，没有数字化</em>。</strong></p>
+
+<h4 id="内置知名数据库">内置知名数据库</h4>
+
+<p>torchtext.datasets中pre-build很多广泛使用的数据库，例如想用IWSLT翻译数据，直接调用：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">train</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">IWSLT</span><span class="o">.</span><span class="n">splits</span><span class="p">(</span><span class="n">exts</span><span class="o">=</span><span class="p">(</span><span class="s">'.de'</span><span class="p">,</span> <span class="s">'.en'</span><span class="p">),</span> <span class="n">fields</span><span class="o">=</span><span class="p">(</span><span class="n">SRC</span><span class="p">,</span> <span class="n">TGT</span><span class="p">),</span>
+  <span class="n">filter_pred</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="nb">vars</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="s">'src'</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">MAX_LEN</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="nb">vars</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="s">'trg'</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">MAX_LEN</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>这里<code class="highlighter-rouge">filter_pred</code>参数是一个<strong><em>对Example的过滤器</em></strong>，只用后面成立的Example，这里是长度过滤。</p>
+
+<p>⚠️<code class="highlighter-rouge">vars</code>和<code class="highlighter-rouge">.__dict__</code>方法是一样的，返回该类属性和属性值组成的dict，通过<code class="highlighter-rouge">.keys()</code>查看有哪些属性。</p>
+
+<h4 id="总结">总结</h4>
+
+<p>Dataset变量从文件中读取数据，并存储为一对一对的list of raw text。</p>
+
+<h3 id="3-建立词表">3. 建立词表</h3>
+
+<p>为Iterator将raw text变为tensor的必要步骤：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">field</span><span class="o">.</span><span class="n">build_vocab</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">vector</span><span class="p">,</span> <span class="n">min_freq</span><span class="p">,</span> <span class="n">max_size</span><span class="p">)</span>
+</code></pre></div></div>
+<p>参数为遍历哪一个dataset建立词典，vector可以指定使用预训练好的词向量，例如<code class="highlighter-rouge">"glove.6B.100d"</code>会下载并使用100维的glove向量，<strong><em>但是这个向量不会在Iterator取样本时自动使用，而是要显示的复制到embedding层中。</em></strong></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">weight_matrix</span> <span class="o">=</span> <span class="n">TEXT</span><span class="o">.</span><span class="n">vocab</span><span class="o">.</span><span class="n">vectors</span>	<span class="c1">#TEXT is a Field variable
+</span><span class="n">embedding</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">weight_matrix</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">weight_matrix</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>	<span class="c1">#维度根据下载的来
+</span><span class="n">embedding</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">weight_matrix</span><span class="p">)</span>	<span class="c1">#拷贝参数
+</span></code></pre></div></div>
+
+<p>之后将其视为正常Embedding层使用。</p>
+
+<p>返回词表大小的方法：<code class="highlighter-rouge">len(field.vocab)</code>。</p>
+
+<h3 id="4-建立迭代器">4. 建立迭代器</h3>
+
+<p>同样分为data.Iterator和data.Iterator.splits两种方法，带splits的要以tuple的形式传入(train, val, test)三个dataset然后返回三个迭代器。</p>
+
+<ul>
+  <li>dataset: 不用splits方法时候传一个dataset，用splits方法传tuple。</li>
+  <li>batch_size: 即batch_size。</li>
+  <li>device: 指定GPU编号，-1是CPU。</li>
+</ul>
+
+<p>之后通过迭代可返回一个Batch类型的实例，这个类似于Example是torchtext定义的。通过<code class="highlighter-rouge">.__dict__.keys()</code>方法可以查看其关键字，其中<code class="highlighter-rouge">.src</code>和<code class="highlighter-rouge">.trg</code>即我们需要的源和目标语句。</p>
+
+<p>这两者(src/trg)的维度都是(batch_size, length)，<strong>⚠️注意batch_size在第一个维度还是第二个维度取决于Field中的定义</strong>，而<strong>length在默认情况下是该batch中的max_length，每个batch会有所不同，如果在Field中指定fix_length则为固定长度。</strong>且<strong>这一步并不会有Embedding维，即使在vocab中指定了使用pre-trained embedding。</strong></p>
+
+<p>其中数据都是<code class="highlighter-rouge">torch.LongTensor</code>类型，是每个词在词表中的index。</p>
+
+<h2 id="language-model">Language Model</h2>
+
+<p>与翻译不同，语言模型往往只使用一个输入文件，通过位移的方法确定源句和输出，即预测下一词。总体的框架与翻译是相同的，只说一下不同之处，以WikiText为例。</p>
+
+<h3 id="建立dataset">建立dataset</h3>
+
+<p>语言模型dataset的建立方法比较简单：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">train</span><span class="p">,</span> <span class="n">valid</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">torchtext</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">WikiText2</span><span class="o">.</span><span class="n">splits</span><span class="p">(</span><span class="n">TEXT</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>注意使用预置的语料建立train/valid/test往往只需要用splits方法➕Field就可以了，在上面翻译例子中由于多文件多了指定扩展名和一个过滤器。</p>
+
+<p>语言模型的dataset比较特殊，如果用<code class="highlighter-rouge">len(train)</code>查看长度会发现只有1，即其中只有1个Example，且只有一个名为<code class="highlighter-rouge">text</code>的Field。即<strong>所有数据都被存在train[0].text中。</strong></p>
+
+<h3 id="fieldbuild_vocab">field.build_vocab()</h3>
+
+<h3 id="bpttiterator">BPTTIterator</h3>
+
+<p>全名BackPropagation Through Time，专门针对于语言模型使用的迭代器。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">train_iter</span><span class="p">,</span> <span class="n">valid_iter</span><span class="p">,</span> <span class="n">test_iter</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">BPTTIterator</span><span class="o">.</span><span class="n">splits</span><span class="p">(</span>
+    <span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">valid</span><span class="p">,</span> <span class="n">test</span><span class="p">),</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+    <span class="n">bptt_len</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="c1"># this is where we specify the sequence length
+</span>    <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s">'cuda:4'</span><span class="p">),</span>
+    <span class="n">repeat</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>使用splits方法针对三个dataset并行操作，其中的参数<code class="highlighter-rouge">bptt_len</code>为每个batch中取多少个词。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">test</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">train_iter</span><span class="p">))</span>
+<span class="n">test</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>输出<code class="highlighter-rouge">dict_keys(['batch_size', 'dataset', 'fields', 'text', 'target'])</code>，这其中text就是输入，target即text位移一个位置后的目标。</p>
+
+<h2 id="inference">Inference</h2>
+
+<ul>
+  <li>Filed.vocab.stoi[string]: 在Field build vocab之后，可以用该方法返回string对应的index，不在词表范围之内的返回<unk>的编号。</unk></li>
+  <li>Filed.vocab.itos[index]: 在Field build vocab之后，可以用该方法返回index对应的string。Index可以是数字或tensor，一次只能取一个。</li>
+</ul>
+
+<p><strong>⚠️注意stoi和itos实质上是两个list，按照编号取对应元素！</strong></p>
+
+<h2 id="batch--batch--example">batch &amp; Batch &amp; example</h2>
+
+<ul>
+  <li>
+    <p>对dataset进行for的循环迭代，每次输出一个example对象。dataset[0]直接返回example对象。每个example的属性可以通过dataset.fields查看，例如翻译中每个example有.src和.trg两个属性。</p>
+  </li>
+  <li>torchtext.data.batch(dataset, size)返回一个generator，以list的形式从dataset中读example按size大小返回，<strong>注意这个generator只能被迭代一次</strong>。</li>
+  <li>torchtext.data.Batch(data, dataset, device)是Iterator返回的对象类型。Batch跟example一样拥有dataset.fields中的属性，但是其添加了batch维度，这点是和batch最大的区别。<strong><em>这个类的目的是将传入的data添加batch维度，传入的data是list形式，dataset用于读取相关fields信息。</em></strong></li>
+  <li>Iterator的逻辑：<strong><em>传入dataset-&gt;调用batch-&gt;传入Batch-&gt;返回</em></strong>。</li>
+</ul>
+:ET

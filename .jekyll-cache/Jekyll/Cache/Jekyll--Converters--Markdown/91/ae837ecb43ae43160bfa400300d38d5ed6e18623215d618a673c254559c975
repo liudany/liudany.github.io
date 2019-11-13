@@ -1,0 +1,480 @@
+I"�y<h1 id="关于tensor">关于Tensor</h1>
+
+<h2 id="autograd">autograd</h2>
+
+<p>0.4以后已经和Variable合并，有了自动微分功能。当<code class="highlighter-rouge">requires_grad</code>属性为真时，记录这个tensor的grad值，模型前向网络中的参数的这个属性都为真。grad与tensor同形，记录着每一个位置对应的导数。每次执行f(x).backward()都会<strong><em>累加grad(accumulated)</em></strong>，这是每个optimizer.step()后zero_grad()的原因。</p>
+
+<p>反向传播实际上就是：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+  <span class="n">p</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">sub_</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">data</span> <span class="o">*</span> <span class="n">learning_rate</span><span class="p">)</span> <span class="c1"># inplace运算
+</span></code></pre></div></div>
+
+<p>这里取p的方式是按矩阵，例如Linear中会返回[out, in]和[out]形状的两个tensor。</p>
+
+<ul>
+  <li>grad_fn: 叶子结点的grad_fn是None，因为自己创建了并没有经过运算，非叶子结点为True，记录着这个结点是由什么运算得来的。</li>
+  <li>is_leaf: <strong><em>用户自己创建的节点属于叶子结点</em></strong>。</li>
+  <li>requires_grad: 叶子和根结点都要是True，是True才会记录他们的计算图。两个True的tensor计算得到的tensor的requires_grad属性也是true。</li>
+</ul>
+
+<p><strong><em>所有对于tensor的操作都会被记录，包括torch.cat等操作，导致内存爆炸。</em></strong></p>
+
+<h2 id="tensorgrad_fn">tensor.grad_fn</h2>
+
+<p>输出该tensor是由什么操作得来的。用户所创建的leaf node的grad_fn是None。</p>
+
+<h2 id="grad_fnnext_functions">grad_fn.next_functions</h2>
+
+<p>会输出grad_fn的输入grad_fn，即看上一步计算是怎么来的。常用方法是next_functions[0] [0]。两个运算得到的结果要用next_functions[1] [0]。</p>
+
+<p>而那些需要求导的variable，例如参数等等，其grad_fn值是AccumulateGrad，也意味着它们的梯度是<strong>累加的</strong>。</p>
+
+<h2 id="tensorbackwardgradient-retain_graph">tensor.backward(gradient, retain_graph)</h2>
+
+<p>loss.backward()计算<strong>每个参数的梯度</strong>，并保存在(model.)parameter.grad中。<strong><em>但是没有进行parameter的更新，只是计算出grad而已。</em></strong>因此严格上来讲也不能叫做反向传播，只是计算导数并没有更新网络参数，<strong><em>optimizer.step()</em></strong>是真正的更新parameter。</p>
+
+<p>梯度累积意味着，在调用optimizer.step()实现梯度下降之前，我们会求取parameter.grad张量中的几个反向操作的梯度和。</p>
+
+<p>若一直进行backward()而没有zero_grad()，梯度会一直累积，所谓梯度累积训练就是经过N步backward()之后再进行一次optimizer.step()。</p>
+
+<p>第一个参数在tensor为矢量时使用，一般情况tensor是loss是个0-dimensional tensor可以直接反向。</p>
+
+<h3 id="grad_variable">grad_variable</h3>
+
+<p>如果此处tensor是一个scalar，那么不需要grad_variables这个参数。如果是一个矩阵，则该参数应该是一个形状相同的tensor，本质原因是<strong><em>tensor无法对tensor求导</em></strong>，所以我们会<strong><em>先进行tensor与grad_variables的矩阵相乘得到一个scalar</em></strong>，之后再利用这个scalar对影响到tensor的每个参数求导。所以这个grad_variables变量可以认为是各个元素的weight。</p>
+
+<h3 id="retain_graph">retain_graph</h3>
+
+<p>为了内存的利用，每次backward()后，计算图会被释放。而如果我还需要这个计算图，就需要置这个参数为1。</p>
+
+<p>这种情况在一个网络有多个输出的情况下非常重要。</p>
+
+<h2 id="tensordata">tensor.data</h2>
+
+<p>如果我们想要对tensor的值进行运算，但是不希望其被autograd引入计算图，就可以用.data方法。</p>
+
+<h2>!=</h2>
+
+<p>两个<code class="highlighter-rouge">同形（不同会broadcast为同形，因此其中一个可以为一个数的tensor）</code>tensor可以用<code class="highlighter-rouge">!=</code>进行运算，返回一个同长度的tensor，相等的位置为0，不等的位置为1。若是两个list，返回值为bool类型，1或0。</p>
+
+<h2 id="填充值">填充值</h2>
+
+<p>tesnor.fill_(value)，改变tensor中的值，其中value必须为数字。</p>
+
+<h2 id="乘法">乘法</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>函数</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>tensor.bmm</td>
+      <td>batch乘法，必须是<code class="highlighter-rouge">b*n*m</code>与<code class="highlighter-rouge">b*m*p</code>的两个阵做运算，得到<code class="highlighter-rouge">b*n*p</code>的结果</td>
+    </tr>
+    <tr>
+      <td>tensor.mul</td>
+      <td>element-wise matrix multiply</td>
+    </tr>
+    <tr>
+      <td>tensor.mm</td>
+      <td>二维矩阵相乘</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="转换">转换</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>函数</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>tensor.tolist()</td>
+      <td>高维tensor转为list类型</td>
+    </tr>
+    <tr>
+      <td>tensor.item()</td>
+      <td>只包含一个元素的tensor转换为number，<code class="highlighter-rouge">loss.item()</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="变形">变形</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>函数</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>tensor.view(1, -1)</td>
+      <td>如一个一维向量进行这个操作，不只是形状，且升级到二维</td>
+    </tr>
+    <tr>
+      <td>tensor.transpose(1, 2)</td>
+      <td>转置，交换两个维度</td>
+    </tr>
+    <tr>
+      <td>tensor.permute(0, 2, 1)</td>
+      <td>交换维度，可以对所有维度同时进行</td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>.view()方法只能作用于<strong>连续内存</strong>，如果在取batch时做了切片等操作，那么数据就不是连续内存上的，需要在view前进行<code class="highlighter-rouge">tensor.contiguous().view()</code>这样的操作使其连续。</li>
+</ul>
+
+<h2 id="生成">生成</h2>
+
+<p>传入list时，作转换作用。传入的不是list时，认为传入的是形状，随机生成。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>函数</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LongTensor(5)</td>
+      <td>这种情况认为5是一个维度，会生成一个形状为5的一维向量</td>
+    </tr>
+    <tr>
+      <td>LongTensor(5,1)</td>
+      <td>生成一个形状为5*1的tensor</td>
+    </tr>
+    <tr>
+      <td>LongTensor([5,1])</td>
+      <td>传入一个list，这是作转换作用，返回一个tensor([5,1])</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="max比较">max比较</h2>
+
+<ol>
+  <li>max(tensor)返回tensor中最大的一个数，以tensor的形式。</li>
+  <li>max(tensor, dim)<strong>返回(Tensor, LongTensor)</strong>，分别是指定维度上最大的数，和其inx。</li>
+  <li>max(tensor1, tensor2)两个同形tensor，返回一个tensor，每个位置元素为1和2中最大的那个。</li>
+</ol>
+
+<h2 id="size">size()</h2>
+
+<p>tensor.size()返回一个torch.Size类型，而tensor.size(0)返回一个int。</p>
+
+<h2 id="随机">随机</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>函数</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>torch.randn_like(tensor)</td>
+      <td>生成和tensor同形状的Normal Distribution，均值0，方差1</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="torchsorttensor-descendingtrue">torch.sort(tensor, descending=True)</h2>
+
+<p>对tensor的<strong>每行</strong>进行排序，默认是升序ascending。返回<strong>(sorted_tensor, sorted_indices)</strong>。</p>
+
+<h2 id="tensortensor">tensor[tensor]</h2>
+
+<p>利用一个indices的tensor对另一个tensor进行行上的重新排序。</p>
+
+<h2 id="tensorindex_selectdim-index">tensor.index_select(dim, index)</h2>
+
+<p>在指定dim上，选择index(LongTensor)指定的顺序的行/列。可以认为是reorder的一种方式。</p>
+
+<h2 id="tensorcatlist-dim">tensor.cat(list, dim)</h2>
+
+<p>第一个参数<strong><em>必须是tensor组成的list/tuple</em></strong>，<strong><em>dim中0是行1是列，一行一行拼起来或是一列一列拼起来。</em></strong></p>
+
+<p>例如dim=1时，必须在0维（行）上要match，此时一列一列拼接，行数不变，列数增加，即一行中的元素数目增加。</p>
+
+<h2 id="切片">切片</h2>
+
+<p>tensor[:, -1:]取最后一列，因为第二个冒号存在所以保持二维。
+tensor[:, -1]取出最后一列，作为一个一维tensor。切片中一旦出现数字，就意味着维度的消失。</p>
+
+<h2 id="tensorrepeatsize">tensor.repeat(*size)</h2>
+
+<p><code class="highlighter-rouge">tensor.repeat(4,2)</code>把这个tensor在行上复制四次，在列上复制两次。</p>
+
+<h2 id="torchtriutensor-dim0">torch.triu(tensor, dim=0)</h2>
+
+<p>将tensor返回一个上三角矩阵，默认保留对角线元素。如果dim=1那么就少保留一斜线，dim=-1往下多留一斜线。</p>
+
+<h2 id="tensorany">tensor.any()</h2>
+
+<p>tensor必须是bool类型，判断是不是有任何非零值。</p>
+
+<h2 id="tensormased_fill_">tensor.mased_fill_()</h2>
+
+<p><code class="highlighter-rouge">masked_fill_</code>函数的意思是，<strong><em>mask是一个二值的ByteTensor，其值为1的位置需要用value(float)来代替</em></strong>。注意value可以直接用数字或者用0维tensor(torch.tensor(5))。</p>
+
+<h2 id="torchrandintlow--0-high-size-device">torch.randint(low = 0, high, size, device)</h2>
+
+<p>size是一个tuple，比如torch.randnint(5, (1,1))。默认low是0，第一个参数就是high。</p>
+
+<p>⚠️<strong>low(inclusive) high(exclusive)</strong>.</p>
+
+<h1 id="torchmultinomial">torch.multinomial</h1>
+
+<p><code class="highlighter-rouge">torch.multinomial(input, num_samples, replacement=Flase)</code>，第一个参数input可以认为是weight/probability，每行是一个概率分布（和不一定是1），按照这个分布为权重取值，返回的是num_samples个被取到的下标，即参数input的形状为<code class="highlighter-rouge">(num_rows, weight)</code>，返回值形状为<code class="highlighter-rouge">(num_rows, num_samples)</code>。replacement表示有无放回。<strong>不是绝对的按照weight取的，概率意义上的权重。</strong></p>
+
+<p>torch.multinomial(torch.ones(n), 1)可以做到在1到n中随机取一个数。</p>
+
+<p><strong>⚠️注意input中的权重值不能为负数！</strong></p>
+
+<h1 id="dataset--dataloader">dataset &amp; dataloader</h1>
+
+<p>Tensors that have the same size of the first dimension. 第一个维度相等，意味着样本数量相等，number * 样本（可以是一维样本例如全都是index，可以是二维图片等等）。取batch就是沿着第一个维度取的。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">torch.utils.data</span> <span class="k">as</span> <span class="n">Data</span>
+<span class="n">torch_dataset</span> <span class="o">=</span> <span class="n">Data</span><span class="o">.</span><span class="n">TensorDataset</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>	<span class="c1">#这里的x和y必须是tensor类型，第一个维度为batch
+</span><span class="n">loader</span> <span class="o">=</span> <span class="n">Data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span>
+	<span class="n">dataset</span> <span class="o">=</span> <span class="n">torch_dataset</span><span class="p">,</span>
+	<span class="n">batch_size</span> <span class="o">=</span> <span class="n">BATCH_SIZE</span><span class="p">,</span>
+	<span class="n">shuffle</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span>
+	<span class="n">num_workers</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+	<span class="n">drop_last</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span>		<span class="c1">#抛弃最后一个，因为长度不一定
+</span>	<span class="n">pin_memory</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span>		<span class="c1">#把数据放到CUDA
+</span>	<span class="p">)</span>
+<span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">batch_x</span><span class="p">,</span> <span class="n">batch_y</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">loader</span><span class="p">):</span>
+	<span class="k">pass</span>
+</code></pre></div></div>
+
+<ul>
+  <li>pin_memory = torch.cuda_is_available</li>
+  <li>shuffle=split==’train’</li>
+  <li>num_workers=cpu_count()</li>
+  <li>pin_memory=torch.cuda.is_available()</li>
+</ul>
+
+<h1 id="nnnllloss">nn.NLLLoss()</h1>
+
+<p>Negative Log Likelihood Loss，输入为(batch_size, vocab)，标签为(batch_size)，注意标签不需要显示的使用one-hot tensors，只需要使用整数表示位置即可。</p>
+
+<p>原理为只关注<strong>正确标签对应的logits</strong>，<strong>若使用one-hot标签，</strong>对输入中的值全部加负号，有batch维度的话求均值，然后让它变小即让正确标签位置数据变大。</p>
+
+<p><strong>⚠️注意NLLoss本身并没有Logsoftmax之类的操作！直接把输入的input按照label来计算！</strong></p>
+
+<p>⚠️<strong>我们期待使用NLL的前向传播时，给的第一个参数是logsoftmax之后的概率！所以使用NLLLoss之前一般在网络的最后一层加一个LogSofmax层。</strong></p>
+
+<p>Softmax让logits位于[0, 1]范围内，而LogSofmax可以让数据位于[-无穷, 0]内。</p>
+
+<h1 id="nncrossentropyloss">nn.CrossEntropyLoss</h1>
+
+<p>即LogSoftmax+NLLLoss()的组合。</p>
+
+<p>接收两个参数，第一个是(N, class)形状的矩阵，其中N表示样本数，class表示类别数量，其中的数字未经过softmax的，第二个参数是一维的，(N)形状，必须为<strong>LongTensor类型</strong>，其中的数据为indices，不可one-hot。</p>
+
+<p>所以对于常见的数据格式而言，经过前向传播得到的out格式为(batch, time-step, vocab_size)，需要<code class="highlighter-rouge">out.view(-1, vocab_size)</code>，相当于把所有句子连起来，一行一个logits。而target原本为(batch, time-step)，需要<code class="highlighter-rouge">target.view(-1)</code>。</p>
+
+<p>输出为一个0维tensor，要记录到list的话使用<strong>loss.item()</strong>。</p>
+
+<h1 id="nnkldivloss">nn.KLDivLoss</h1>
+
+<p>计算两个分布之间的距离，参数和交叉熵不同。但是也返回0维tensor。</p>
+
+<h1 id="nnembedding">nn.Embedding</h1>
+
+<ol>
+  <li>索引是用<strong>LongTensor</strong>的indices(index的复数)，不用one-hot向量。这一点在定义数据集的时候就要注意。</li>
+  <li>如果不指定初始化方式，默认使用(0, 1)的normal distribution正态分布。Embedding层有一个weight属性，是Parameter初始化的，可以通过<code class="highlighter-rouge">embedding.weight.data.uniform_(-1, 1)</code>改为均匀分布。</li>
+  <li>不管输入的是什么格式的数据，都会在其<code class="highlighter-rouge">n * m</code>的维度后加上嵌入维度d，变为<code class="highlighter-rouge">n * m * d</code>类型的输出。比如我直接输入一个一维的一百个词的indices，<code class="highlighter-rouge">tensor([100])</code>，经过Embedding层后得到的是<code class="highlighter-rouge">tensor([100, dim])</code>每一行为一个词向量。没有固定要求，视后面的运算而定，加上batch的三维信息也可以。</li>
+</ol>
+
+<h1 id="nndropout">nn.Dropout</h1>
+
+<p>目的是正则化，防止神经元之间互相依赖。将一个tensor中的部分元素按照概率p置换为0，其他部分乘以缩放因子，使得总的大小保持相对稳定。</p>
+
+<h1 id="nnlstm">nn.LSTM</h1>
+
+<h2 id="定义">定义</h2>
+
+<p>首先LSTM是一个重复使用的单元，只有一套参数，所以定义时只要规定好输入数据维度、隐层数据维度、层数和方向就可以了，time-step没限制，重复使用这个单元就可以，体现在输入中。</p>
+
+<p>网络定义时，参数为<code class="highlighter-rouge">nn.LSTM(input_size, hidden_size, num_layers, batch_first, bidirectional)</code>，注意定义网络时没有time_step这个属性。其中<strong>batch_first置位会影响input和output的形状，而对h_n和c_n无影响，它们的batch信息还是在中间维度。</strong></p>
+
+<h2 id="网络输入">网络输入</h2>
+
+<p>lstm模块接收的参数为<code class="highlighter-rouge">(inputs, (h_n, c_n))</code>，前者为喂入网络的数据，格式<strong>必须</strong>为<code class="highlighter-rouge">(batch_size, time_step, feature_length)</code>。后者不传也可以，缺省状态为全0。</p>
+
+<p>注意训练时输入的time-step和后面evaluate时候的time-step不必一致，只要保存下(h_n, c_n)的state，再作为下一次循环的输入就可以了。<code class="highlighter-rouge">output, state = model(input, state)</code>。</p>
+
+<h2 id="网络输出">网络输出</h2>
+
+<p>网络返回两（三）个参数，<code class="highlighter-rouge">output, (h_n, c_n)</code>。第二个参数这种tuple的形式和输入第二参数是一致的，以供循环传递隐状态。</p>
+
+<ol>
+  <li>output的形状为<code class="highlighter-rouge">(batch(first), time_step, hidden_size * num_direction)</code>，保存了<strong>最后一层</strong>LSTM的<strong>每一个time-step</strong>隐状态即输出。如果是双向的，h_n的形状为(num_direction * hidden_size)，是单纯的拼接起来，取其<code class="highlighter-rouge">[:hidden_size]</code>个向量得到正向的这一步的输出。</li>
+  <li>h_n形状为<code class="highlighter-rouge">(num_layers * num_directions, batch, hidden_size)</code>，保存了<strong>每一层</strong>LSTM的<strong>最后一个time-step（包括正反向）</strong>的隐状态输出。如果是双向的，<strong>第一个维度按（第一层正向，第一层反向，第二层正向，第二层反向…）</strong>顺序来保存。</li>
+  <li>c_n同h_n，保存的是cell_state。</li>
+</ol>
+
+<p>SGD在RNN中的应用？一个batch而言怎么sgd</p>
+
+<h1 id="nnlinear">nn.Linear</h1>
+
+<p>Linear接受的输入是<code class="highlighter-rouge">(N, *, in_features)</code>并输出<code class="highlighter-rouge">(N, *, out_features)</code>，也就是说对最后一个维度进行线性处理，输出维度与之前格式相同。</p>
+
+<h1 id="evaluation">Evaluation</h1>
+
+<p>测试时，使用<code class="highlighter-rouge">with torch.no_grad()</code>环境来关闭计算图功能。一些常用的evaluate方法：</p>
+
+<ol>
+  <li><code class="highlighter-rouge">_, prediction = torch.max(output.data, 1)</code>返回output中最大的数的下标，认为就是其类别。</li>
+  <li><code class="highlighter-rouge">correct += (prediction == labels).sum().item()</code>，其中<code class="highlighter-rouge">tensor == tensor</code>按照对应位置是否相同返回是1或0，sum求和，item转换为python的number。</li>
+</ol>
+
+<h1 id="batch_training">batch_training</h1>
+
+<p>yunjey的这种构造batch_training的方法和train_loader的不同？好像他这样才是真正的batch</p>
+
+<p>测试时候所谓的窗口大小信息又用在哪了？还是说训练就这么训练，我后面就不那么用。认为可以捕捉所有的上下文。</p>
+
+<h1 id="变长rnn序列">变长rnn序列</h1>
+
+<h2 id="padding--sort">padding &amp; sort</h2>
+
+<p>首先padding到max_length，且记录每个样本的length，按长度降序排列。首先input是个list。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+
+<span class="nb">input</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s">'&lt;pad&gt;'</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">max_length</span> <span class="o">-</span> <span class="n">length</span><span class="p">))</span>
+
+<span class="n">sorted_lengths</span><span class="p">,</span> <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">length_list</span><span class="p">,</span> <span class="n">descending</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="n">input_sequence</span> <span class="o">=</span> <span class="n">input_sequence</span><span class="p">[</span><span class="n">sorted_idx</span><span class="p">]</span>
+</code></pre></div></div>
+
+<h2 id="nnutilsrnnpack_padded_sequenceinput-length-batch_firsttrue">nn.utils.rnn.pack_padded_sequence(input, length, batch_first=True)</h2>
+
+<ol>
+  <li>目的：为了RNN训练时的mini-batch training，所以有补齐一个minibatch中数据长度的需要，如果是每次一个样本的话，就没有这个必要了。</li>
+  <li>输入：input是一个<strong>经过padding，embedding，descending_order之后的</strong>三维tensor。length是一个每一行样本有效长度序列。</li>
+  <li>输出：返回一个PackedSequence对象，可以直接输入到RNN网络中。</li>
+</ol>
+
+<h2 id="nnutilsrnnpad_packed_sequenceoutput-batch_firsttrue">nn.utils.rnn.pad_packed_sequence(output, batch_first=True)</h2>
+
+<h1 id="卷积">卷积</h1>
+
+<h2 id="nnconv2din_channels-out_channels-kernel_size">nn.Conv2d(in_channels, out_channels, kernel_size)</h2>
+
+<p><strong>out_channel是卷积核的数量</strong>，in_channel在输入图片的通道数，而卷积核（三维的，深度自动等于in_channels）的深度默认和输入通道一致，虽然有深度但是所有位置数字相乘加起来，算法一样的。所以一个kernel把多通道的图片压缩为一通道的平面矩阵，所以有多个kernel就会产生多个channel堆叠。这个out_channel也就是再接入下一层的in_channel大小。</p>
+
+<ul>
+  <li>虽然是2d，卷积核依然是3维有深度的。</li>
+  <li>一个卷积核对应着一个out_channel，生成一张feature map。</li>
+  <li>Kernel_size也可以叫patch size，每次关注的区域。</li>
+</ul>
+
+<p>输入数据<code class="highlighter-rouge">(batch, in_channels, height, width)</code>，得到<code class="highlighter-rouge">(batch, out_channels, new_height, new_width)</code>，从图片角度讲channel自然而然的放到第二个维度。</p>
+
+<h2 id="nnconv1din_channels-out_channels-kernel_size">nn.Conv1d(in_channels, out_channels, kernel_size)</h2>
+
+<p>类比，<strong>in_channel是一个会自动被kernel覆盖的量</strong>，我想覆盖整个词向量所以in_channel是embedding_size，kernel此时只是二维的，第一个维度是指定的，第二个维度自动覆盖in_channel。</p>
+
+<p>注意输入数据维度与2d保持一致，<code class="highlighter-rouge">(batch, in_channels, length)</code>，即<strong>词向量的维度embedding_size要放在中间</strong>，而一般情况下<strong>从Embedding取出来的词向量embedding_size处于最后一个维度</strong>，所以要交换维度。
+最后得到的输出也与2d保持一致，<code class="highlighter-rouge">(batch, out_channels, new_length)</code>。</p>
+
+<p>卷积过程理解为，先把形状转置为(N, C, L)，然后卷积核横着走一遍，得到一个<strong>行向量，作为一个channel的值</strong>，然后下一个kernel再来卷一遍，得到下一行，所以最终行数等于out_channels，列数新定。</p>
+
+<h3 id="对比2d和1d">对比2d和1d</h3>
+
+<p>在2d中，每个像素点的属性是三维的(RGB)，所以一个kernel对应于每个点的乘加系数也是三维的(三个数)。</p>
+
+<p>而在1d中，每个词的属性是embedding_size那么多维度的，所以一个kernel对应于每个点的乘加系数是embedding_size维度的。</p>
+
+<p>在实现中，每个点有多少个属性就叫in_channels，kernel_size中不用指定这个维度，所以在图像中只需要指定剩余的2d平面上的(axb)为size，而在文本1d卷积中只需要(k)这个patch size就可以了。</p>
+
+<p><img src="/img/conv1d.png" alt="" /></p>
+
+<h2 id="nnmaxpool1d">nn.MaxPool1d</h2>
+
+<p>一维卷积是覆盖所有in_channel（卷积核实质上也理解为二维的），但是一维池化不是，一维池化的kernel就是一维的窗(1xkernel_size)在每一个channel上走，<strong>默认stride=kernel_size（conv默认stride=1）</strong>，不交叠，可以设置stride来改变。</p>
+
+<p>输入<code class="highlighter-rouge">(N, Channel, Length)</code>，输出<code class="highlighter-rouge">(N, Channel, New_Length)</code>，前两个维度不变。</p>
+
+<h2 id="nnconvtranspose1din_channels-out_channels-kernel_size-padding">nn.ConvTranspose1d(in_channels, out_channels, kernel_size, padding)</h2>
+
+<ol>
+  <li><strong>根据padding值添加(kernel_size - 1 - padding)个zero-padding</strong>，即padding就算等于0，也会添加kernel_size-1个零。</li>
+  <li>这么做是为了让相同参数的Conv层和ConvTranspose层可以是互为对应的，在维度上可以互相恢复。</li>
+  <li>计算TransConv的输出维度时，用计算Conv1d的反向算法，即认为我们要求的输出length是Conv1d的输入，反过来算，<strong>无视上面的1条。</strong></li>
+</ol>
+
+<h1 id="批标准化">批标准化</h1>
+
+<h2 id="nnbatchnorm1d">nn.BatchNorm1d()</h2>
+
+<p>模型收敛的更加快速，对每个dimension进行normalization。</p>
+
+<p>在test的时候只有1个data进来，不能在batch上计算均值和方差了，所以在test的时候，计算整个训练集的均值和方差，应用在test的时候。</p>
+
+<h1 id="numpy">Numpy</h1>
+
+<h2 id="xtolist">x.tolist()</h2>
+
+<p>np的元素打印出来虽然也有个中括号，但是毕竟是numpy类，且打印出来以空格隔开的。转为list以逗号隔开。</p>
+
+<h2 id="nprandintlow-highnone-size">np.randint(low, high=None, size)</h2>
+
+<p>若是np.randint(5, size=10)默认5是上限，生成一个一维的不超过5的10个数。</p>
+
+<h2 id="npcopyx">np.copy(X)</h2>
+
+<p>若是直接<code class="highlighter-rouge">y=x</code>则两个变量指向同一内存空间，修改一个另一个也跟着同时改变。若是<code class="highlighter-rouge">y = np.copy(x)</code>则开辟了一块新的内存空间，不共享。</p>
+
+<h2 id="加法操作">加法操作</h2>
+
+<p>在list操作中，直接两个<code class="highlighter-rouge">[]</code>list作加法，是连接起来。但是如果是两个numpy，作加法，是broadcast。</p>
+
+<h1 id="实现word_dropout">实现word_dropout</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">word_dropout_rate</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+	<span class="c1"># randomly replace decoder input with &lt;unk&gt;
+</span>	<span class="n">prob</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">input_sequence</span><span class="o">.</span><span class="n">size</span><span class="p">())</span>
+	<span class="n">prob</span><span class="p">[(</span><span class="n">input_sequence</span><span class="o">.</span><span class="n">data</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">sos_idx</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">input_sequence</span><span class="o">.</span><span class="n">data</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">pad_idx</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+	<span class="n">decoder_input_sequence</span> <span class="o">=</span> <span class="n">input_sequence</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+	<span class="n">decoder_input_sequence</span><span class="p">[</span><span class="n">prob</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">word_dropout_rate</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unk_idx</span>
+	 <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span><span class="p">(</span><span class="n">decoder_input_sequence</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h1 id="内存分配">内存分配</h1>
+
+<p>可使用<code class="highlighter-rouge">torch.cuda.memory_allocated(device)</code>查看内存使用情况，单位是bytes，除10^9转换为GB。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">print_allocated_memory</span><span class="p">(</span><span class="n">device</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">"{:.2f} GB"</span><span class="o">.</span><span class="nb">format</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">memory_allocated</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">3</span><span class="p">))</span> <span class="c1"># 先算power
+</span></code></pre></div></div>
+
+<p>注意这里的device是一个torch.device属性变量。</p>
+
+<h1 id="梯度裁剪">梯度裁剪</h1>
+
+<p><code class="highlighter-rouge">torch.nn.utils.clip_grad_norm_(model.parameters(), clip)</code>，clip is a float number.</p>
+
+:ET

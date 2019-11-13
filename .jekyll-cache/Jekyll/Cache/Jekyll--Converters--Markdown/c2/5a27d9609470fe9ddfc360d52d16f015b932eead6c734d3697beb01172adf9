@@ -1,0 +1,74 @@
+I"e%<h1 id="数据加载">数据加载</h1>
+
+<p>数据加载相关的包都在<code class="highlighter-rouge">torch.utils</code>中，需要<code class="highlighter-rouge">from torch.utils import data</code>，再使用data中的<code class="highlighter-rouge">Dataset</code>和<code class="highlighter-rouge">Dataloader</code>等方法。</p>
+
+<p>PyTorch中，通过自定义的<strong>数据集对象</strong>来封装自己的数据集，需要<strong>继承Dataset类</strong>，并实现两个Python魔方方法：<code class="highlighter-rouge">__getitem__(self, index)</code>和<code class="highlighter-rouge">__len__(self)</code>分别实现<code class="highlighter-rouge">obj[index]</code>和<code class="highlighter-rouge">len[obj]</code>。自定义Dataset类之后再使用<strong>Dataloader</strong>来实现数据的并行加载。</p>
+
+<p>对于图像的处理，面对文件夹下的很多图像，如何将其读入PyTorch中呢：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="n">pil_img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="nb">open</span><span class="p">(</span><span class="n">img_path</span><span class="p">)</span>
+<span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pil_img</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>流程为：PIL.Image打开图片 -&gt; 保存为pil_img -&gt; 转换为np格式 -&gt; 转换为tensor格式。</p>
+
+<p>在实例化自定义的dataset之后，使用dataloader来加载batch数据，一般方法为：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">train_dataloader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">train_data</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span>
+                    <span class="n">shuffle</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="n">num_workers</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">batch_datas</span><span class="p">,</span> <span class="n">batch_labels</span> <span class="ow">in</span> <span class="n">train_dataloader</span><span class="p">:</span>
+	<span class="n">train</span><span class="p">()</span>
+</code></pre></div></div>
+
+<h1 id="可视化工具">可视化工具</h1>
+<h2 id="tensorboard">Tensorboard</h2>
+
+<p>这里用的是tensorboard_logger来记录损失函数，首先启动Tensorboard，指定路径，绑定端口：</p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>tensorboard <span class="nt">--logdir</span> &lt;<span class="nb">dir</span><span class="o">&gt;</span> <span class="nt">--port</span> &lt;port&gt;
+</code></pre></div></div>
+
+<p>使用时，首先构建logger对象，再用这个logger对象来记录数据：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">tensorboard_logger</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">Logger</span><span class="p">(</span><span class="n">logdir</span> <span class="o">=</span> <span class="s">'dir'</span><span class="p">,</span> <span class="n">flush_secs</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+	<span class="n">logger</span><span class="o">.</span><span class="n">log_value</span><span class="p">(</span><span class="s">'loss'</span><span class="p">,</span> <span class="mi">10</span><span class="o">--</span><span class="n">ii</span><span class="o">**</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">step</span> <span class="o">=</span> <span class="n">ii</span><span class="p">)</span>
+</code></pre></div></div>
+<h2 id="visdom">Visdom</h2>
+
+<p>Facebook为PyTorch开发的可视化工具，非常轻量级。</p>
+<h2 id="tensorboard-x">Tensorboard-X</h2>
+
+<p>针对PyTorch开发的，比tensorboard_logger功能强大，封装了大部分Tensorboard的借口。</p>
+<h1 id="gpu加速">GPU加速</h1>
+
+<p>Tensor，Variable和nn.Module（包括所有layer，loss和Sequential）数据结构都包含CPU和GPU两个版本，它们都有一个<code class="highlighter-rouge">.cuda()</code>方法，调用这个方法就可以把所有数据转移到GPU。</p>
+
+<p>除了<code class="highlighter-rouge">.cuda()</code>方法外，还有<code class="highlighter-rouge">torch.cuda.device(n)</code>来指定使用GPU n，使用方法为：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="mi">1</span><span class="p">):</span>
+	<span class="o">...</span>
+</code></pre></div></div>
+
+<p>一般情况下，调用默认参数的<code class="highlighter-rouge">tensor.cuda()</code>方法会将数据保存到第一块GPU上，等价于<code class="highlighter-rouge">tensor.cuda(0)</code>，这样要更改很麻烦。一种解决的方法是先调用<code class="highlighter-rouge">torch.set_device(1)</code>指定第二块GPU，这样后续的默认操作都会在第二块GPU操作。</p>
+
+<p>还有一种常用的方法是在命令行中，设置环境变量<code class="highlighter-rouge">CUDA_VISIBLE_DEVICES = 0, 2, 3</code>。这里的原理是设置逻辑GPU与物理GPU的对应，例如上条语句之后，那1，3，4号GPU就是逻辑1，2，3号GPU，这时我执行<code class="highlighter-rouge">t.cuda(1)</code>，程序会将t的数据保存到第2块逻辑GPU上，也就是物理上的GPU 3。</p>
+
+<p>分布训练和并行训练的区别：分布训练指不同服务器的不同GPU上同时训练，一般人接触不到。并行指一机多卡的训练。</p>
+
+<h1 id="持久化">持久化</h1>
+
+<p>模型、数据和优化器都可以持久化到硬盘，并能通过相应的方法再加载到内存中。通过<code class="highlighter-rouge">t.save(obj, file_name)</code>和<code class="highlighter-rouge">t.load(file_name)</code>即可：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">a</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_avialable</span><span class="p">():</span>
+	<span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">cuda</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+	<span class="n">t</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s">'a.pth'</span><span class="p">)</span>
+	<span class="n">b</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s">'a.pth'</span><span class="p">)</span>
+</code></pre></div></div>
+<p>模型的保存：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">torchvision.models</span> <span class="kn">import</span> <span class="n">AlexNet</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">AlexNet</span><span class="p">()</span>
+<span class="n">t</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">mode</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="s">'net.pth'</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s">'net.pth'</span><span class="p">))</span>
+</code></pre></div></div>
+<p>Optimizer的保存和加载方法与Model的相同，都是调用自身的<code class="highlighter-rouge">.state_dict()方法</code>返回所有参数的字典，加载时调用自身的<code class="highlighter-rouge">.load_state_dict(t.load('net.pth'))</code>。</p>
+:ET

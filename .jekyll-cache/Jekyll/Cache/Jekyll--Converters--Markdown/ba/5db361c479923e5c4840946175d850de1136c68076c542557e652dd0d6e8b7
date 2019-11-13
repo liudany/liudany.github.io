@@ -1,0 +1,52 @@
+I"5<h1 id="neural-machine-translation-by-jointly-learning-to-align-and-translate">NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN AND TRANSLATE</h1>
+
+<p>Summarize <a href="https://arxiv.org/abs/1409.0473">NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN AND TRANSLATE</a>.</p>
+
+<p>Generally speaking, an encoder reads the input sentence <code class="highlighter-rouge">X</code>, and convert it to a <code class="highlighter-rouge">variable/fixed-length</code> vector c.</p>
+
+<script type="math/tex; mode=display">h _ { t } = f \left( x _ { t } , h _ { t - 1 } \right)</script>
+
+<script type="math/tex; mode=display">c = q \left( h _ { 1 } , h _ { 2 } , \dots , h _ { T _ { x } } \right)</script>
+
+<p>Most of the previous works used an LSTM as <code class="highlighter-rouge">f()</code>, and <code class="highlighter-rouge">q()</code> is the last hidden state in the sequence.</p>
+
+<p>The decoder predicts the next word $y_{t}$ given the context vector <code class="highlighter-rouge">c</code> and <code class="highlighter-rouge">all the previously predicted words (y1, y2, ..., yt-1)</code>.</p>
+
+<script type="math/tex; mode=display">p \left( y _ { t } | y _ { 1 } , \ldots , y _ { t - 1 } , X \right) = g \left( y _ { t - 1 } , s _ { t } , c \right)</script>
+
+<p>where $y _ {t-1}$ is previously predicted word and $s _ {t}$ is the hidden state of RNN.</p>
+
+<h2 id="encoder">encoder</h2>
+
+<p>This paper proposed a BiRNN to make the <code class="highlighter-rouge">annotation(hidden state in encoder)</code> of each word to summarize not only the preceding words, but also the following words.</p>
+
+<p>The annotation for each word $x_{j}$ is a <code class="highlighter-rouge">concatenation</code> of the forward hidden state and the backward one.</p>
+
+<h2 id="decoder-with-attention">decoder with attention</h2>
+
+<script type="math/tex; mode=display">p \left( y _ { t } | y _ { 1 } , \ldots , y _ { t - 1 } , X \right) = g \left( y _ { t - 1 } , s _ { t } , c _ { t } \right)</script>
+
+<p>It should be noted that the third parameter is <code class="highlighter-rouge">c_t</code>, a distinct context vector for time-state of decoding time, instead of <code class="highlighter-rouge">c</code>.</p>
+
+<script type="math/tex; mode=display">c _ { i } = \sum _ { j = 1 } ^ { T _ { x } } \alpha _ { i j } h _ { j }</script>
+
+<p>where $h _ {j}$ is the output of the encoder. The $\alpha_{ij}$ is computed by</p>
+
+<script type="math/tex; mode=display">\alpha _ { i j } = \operatorname { softmax } \left( \operatorname { score } \left( s _ { i - 1 } , H \right) \right)</script>
+
+<p>where $s_{i-1}$ is the hidden state of decoder, $H$ is the output sequence of encoder. In this paper this <code class="highlighter-rouge">aligned model</code> is <code class="highlighter-rouge">parameterized as a feedforward neural network</code>.</p>
+
+<p>In each decoding step, there are 3 inputs to the decoder: $s _ {t-1}$, $y _ {t-1}$(after embedding) and context vector with attention $c_{i}$.</p>
+
+<h2 id="reverse-the-order-of-source-sentences">Reverse the order of source sentences</h2>
+
+<p>In conventional <code class="highlighter-rouge">one-direction RNN model</code>, while the LSTM is capable of solving problems with long term dependencies, it learns much better when the source sentences are reversed(the target sentences are not).</p>
+
+<p>But BiRNN learns the bi-directional information better. So this method is rarely used.</p>
+
+<h2 id="concat-or-plus">Concat or plus?</h2>
+
+<p>There is no difference.</p>
+
+<script type="math/tex; mode=display">W _ { a } x + W _ { b } y = \left( W _ { a } , W _ { b } \right) ( x , y ) ^ { T }</script>
+:ET

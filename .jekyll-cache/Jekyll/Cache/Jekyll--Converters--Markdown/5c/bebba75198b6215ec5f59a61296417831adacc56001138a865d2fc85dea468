@@ -1,0 +1,293 @@
+I"/<h1 id="基础操作">基础操作</h1>
+
+<p>一个支持GPU加速的高维数组。</p>
+<h2 id="新建一个tensor">新建一个Tensor</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>t.ones(size)</td>
+      <td>全1矩阵</td>
+    </tr>
+    <tr>
+      <td>t.zeros(size)</td>
+      <td>全0矩阵</td>
+    </tr>
+    <tr>
+      <td>t.arange(start, end, steps)</td>
+      <td>从start开始，按步长往后加，不含end</td>
+    </tr>
+    <tr>
+      <td>t.linspace(start, end, steps)</td>
+      <td>以start为首，以end为结尾，包含首尾平分为steps份</td>
+    </tr>
+    <tr>
+      <td>t.randn(size)</td>
+      <td>随机</td>
+    </tr>
+    <tr>
+      <td>t.randperm(n)</td>
+      <td>生成0到n-1的随机排列</td>
+    </tr>
+    <tr>
+      <td>t.eye(n)</td>
+      <td>生成n维对角阵</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="形状和维度">形状和维度</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>命令</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>a.view(-1, 3)</td>
+      <td>将Tensor调整为size形状，前后必须<strong>元素数量一致</strong>且<strong>共享内存</strong>，-1表示该维度自适应</td>
+    </tr>
+    <tr>
+      <td>a.shape &amp; a.size()</td>
+      <td>shape是Tensor的一个变量而size()为一个函数</td>
+    </tr>
+    <tr>
+      <td>a.unsqueeze(n)</td>
+      <td>在a的第n个维度处增加1</td>
+    </tr>
+    <tr>
+      <td>a.squeeze()</td>
+      <td>缺省时为压缩矩阵所有为1的维度</td>
+    </tr>
+    <tr>
+      <td>a.size_()</td>
+      <td>resize函数的inplace用法可以无视Tensor维度，增加0或减少多余</td>
+    </tr>
+    <tr>
+      <td>a.t()</td>
+      <td>转置，<strong>二维数组才有转置</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>关于Tensor的维度，例如：
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>tensor([[[ 0.,  1.,  2.]],
+      [[ 3.,  4.,  5.]]])
+</code></pre></div>    </div>
+    <p>这是一个3维矩阵，维度为 2x1x3，开头几个中括号就有多少维度。</p>
+  </li>
+  <li>注意所有操作都是<strong>返回一个新的Tensor</strong>，如果想用inplace的操作需要在函数后加下划线_，且部分函数没有inplace的用法。</li>
+  <li>non-inplace的resize函数和view基本一致，不可以改变维度。</li>
+</ul>
+
+<h2 id="索引">索引</h2>
+<p>a = t.randn(3, 4)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>命令</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>a[0] / a[:, 0]</td>
+      <td>第1行 / 第一列</td>
+    </tr>
+    <tr>
+      <td>a[0][-1] &amp; a[0, -1]</td>
+      <td>第一行最后一个元素</td>
+    </tr>
+    <tr>
+      <td>a[:2] / a[:, :2]</td>
+      <td>即a[0:2]前两行 / 前两列</td>
+    </tr>
+    <tr>
+      <td>a &gt; 1</td>
+      <td>判断每个位置元素是和否大于1</td>
+    </tr>
+    <tr>
+      <td>a[a &gt; 1]</td>
+      <td>将上行中矩阵作为mask，输出大于1的所有元素</td>
+    </tr>
+    <tr>
+      <td>a.gather(dim, index)</td>
+      <td>dim分为<strong>0（列）和1（行）</strong>，按index取出元素</td>
+    </tr>
+    <tr>
+      <td>a.scatter(dim, index, input)</td>
+      <td>gather的逆操作，改变input矩阵中index与dim所规定位置元素</td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>a[0:1, :2]与a[0, :2]不同，前者是二维Tensor，后者一维。带冒号一般是二维数组。</li>
+  <li>gather函数中，index若为二维行向量，则dim应该为0（列），表示从每列中选取index位置元素，生成一个形状与index相同的向量；二维也是一样，index与input行对齐则dim应该为0。</li>
+  <li>想生成一个列有规律的向量，往往先按照[[xxx][yyy]]的形式生成行向量，再.t()转置得到。</li>
+  <li>三维数组理解为n个2维数组。</li>
+</ul>
+
+<h2 id="tensor数据类型">Tensor数据类型</h2>
+
+<p>默认的Tensor数据类型为<code class="highlighter-rouge">FloatTensor</code>。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>命令</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>t.set_default_tensor_type()</td>
+      <td>改变默认Tensor类型</td>
+    </tr>
+    <tr>
+      <td>a.type(type)</td>
+      <td>改变a的类型</td>
+    </tr>
+    <tr>
+      <td>a.new(size)</td>
+      <td>生成与a同类型的Tensor</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="element-wise-逐元素操作">Element-wise 逐元素操作</h2>
+
+<ol>
+  <li>很多运算符PyTorch已经进行重载，例如 a ** 2， a * 2 等。</li>
+  <li>注意<code class="highlighter-rouge">t.clamp(x, min, max)</code>函数，小于min和大于max的部分都会被截断。</li>
+</ol>
+
+<h2 id="归并操作--max">归并操作 &amp; max</h2>
+
+<p>这里牵扯到维度，特别是1的维度保留与否，类似Numpy中axis的用法，很绕。a = t.ones(2, 3)：</p>
+
+<ol>
+  <li>以sum为例，a.sum(dim = 0, keepdim = True)，则按列求和，生成一个维度为（1, 3）的<strong>二维数组</strong>。若keepdim=False，则结果维度为（，3）一维数组。</li>
+  <li>也有说法，从结果来看，dim = n，则输出向量的第n个维度就是1，至于1会不会保留，大部分时候看<code class="highlighter-rouge">keepdim</code>是否为True。</li>
+</ol>
+
+<p>max的操作分为三种：</p>
+
+<ol>
+  <li>t.max(a)返回tensor中最大的一个数。</li>
+  <li>t.max(a, dim)在指定维度上最大的数，<strong>返回两个tensor，第一个为最大的数值，第二个为所在的坐标</strong>。</li>
+  <li>t.max(a, b)返回每个位置中ab较大的那个。</li>
+</ol>
+
+<h2 id="线性代数">线性代数</h2>
+
+<ol>
+  <li>转置运算<code class="highlighter-rouge">.t()</code>会使得存储空间不连续，这一点可以通过<code class="highlighter-rouge">a.is_contiguous()</code>来判断。Tensor的<code class="highlighter-rouge">.contiguous()</code>方法可使其变得连续。</li>
+  <li>注意<code class="highlighter-rouge">a*b</code>为Element-wise操作，矩阵乘法为<code class="highlighter-rouge">t.mm(a,b)</code>。</li>
+  <li>逆运算<code class="highlighter-rouge">inverse</code>，奇异值分解<code class="highlighter-rouge">svd</code>，迹<code class="highlighter-rouge">trace</code>等等，现用现查。</li>
+</ol>
+
+<h1 id="tensor与numpy对比">Tensor与Numpy对比</h1>
+
+<h2 id="关于内存共享">关于内存共享</h2>
+<p>前面提到过二者可相互转换且共享内存，Numpy支持的操作更丰富，可以Tenor-&gt;Numpy—&gt;….-&gt;Tensor，且这样操作开销很小。这里注意共享内存的前提是：<strong>Numpy和Tensor的数据类型相同</strong>，由于Tensor默认为FloatTensor，所以在新建Numpy的时候注意设定<code class="highlighter-rouge">dtype = float32</code>，不然数据只会被复制而不会共享内存。</p>
+
+<h2 id="broadcast">Broadcast</h2>
+<p>说起这个突然想起了吴恩达……orz，这里书的作者建议手动实现一下广播法则，举个例子实现形状为a(3,2)和b(2, 3, 1)的Tensor相加：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">a</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">b</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+</code></pre></div></div>
+<p>注意<code class="highlighter-rouge">unsqueeze()</code>和<code class="highlighter-rouge">expand()</code>两个函数参数用法不同，前者只需要指定增加维度的地方，后者要指明扩展之后的向量具体维度，注意expand只可以扩展原来为1的维度，不可2-&gt;3，扩展方法为复制。
+平时使用还是自动广播就好了。</p>
+
+<h1 id="内部结构">内部结构</h1>
+
+<p>分为<code class="highlighter-rouge">头部信息区 + 数据存储区</code>，所谓共享内存就是指使用共同的数据存储区，但是头部信息区的信息不同（例如形状）。当某些操作导致内存不连续时，使用<code class="highlighter-rouge">.contiguous</code>可以使连续，但是数据会被复制到新的内存空间，这样前后Tensor的内存不再共享。</p>
+
+<h1 id="其他">其他</h1>
+
+<p>写基础的Tensor运算模块时，很重要的一点是注意向量化运算（此处又想起吴恩达……），尽量避免Python原生的for循环，非常低效。PyTorh中Builtin的向量运算，或者说矩阵运算这些底层的函数都是C/C++实现的，能通过执行底层优化实现高效的计算。</p>
+
+<h1 id="实现线性回归">实现线性回归</h1>
+
+<p>这里我混淆一个地方，<strong>Loss Function</strong>和<strong>Cost Function</strong>，根据Ng的课来说，前者是<strong>单个样本的偏差</strong>，后者是<strong>所有样本或者一个Batch上的偏差</strong>。现在很多地方已经不区分这两者，但是分的清楚点很多时候讲的清楚。我们的优化目标是<strong>整个样本空间内或当前Batch的总体损失最小</strong>，要的是全局最优解。反向传播求导的时候是从Cost Function开始来求的，牵扯到一个平均的问题。</p>
+
+<script type="math/tex; mode=display">Cost = \lambda \frac{1}{m} \sum_{i=1}^{m}(\hat{y}\_{i} - y\_{i})^2</script>
+
+<p>反向传播后得到：</p>
+
+<script type="math/tex; mode=display">\frac{dCost}{dw} = \lambda \frac{1}{m} \sum_{i=1}^{m}(\hat{y}\_{i} - y\_{i})\frac{d\hat{y}\_{i}}{dw}</script>
+
+<p>注意到前面是有m累加的，或者说这里也可以通过<strong>Vectorize</strong>的方法实现：</p>
+
+<script type="math/tex; mode=display">\frac{dCost}{dW} = \lambda (\hat{Y} - Y)^{T}(\frac{d\hat{Y}}{dW})</script>
+
+<p>这里又说到一个老问题，复习下梯度下降的不同方式：</p>
+
+<ol>
+  <li>Batch Gradient Descent: 每次更新参数时使用所有的参数，易于全局最优但是慢。</li>
+  <li>Stochastic Gradient Descent: 每次只用一个样本来下降，训练速度很快，但是盲目，需要的迭代次数多。</li>
+  <li>Mini-batch Gradient Descent: 中和上面二者的方法。</li>
+</ol>
+
+<h2 id="plt工具">plt工具</h2>
+
+<p>总的来说plt的工作模式分为<strong>阻塞模式</strong>和<strong>交互模式</strong>，前者plot后必须show()才会显示图像，且代码停止在此；后者持续运行，图像可能会一闪而过，要配合pause()食用。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>命令</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>from matplotlib import pyplot as plt</td>
+      <td>引入包</td>
+    </tr>
+    <tr>
+      <td>plt.scatter(x.numpy(), y.numpy())</td>
+      <td>散点图，两个参数为同维度的numpy型</td>
+    </tr>
+    <tr>
+      <td>plt.plot(x.numpy(), y.numpy())</td>
+      <td>直线，参数同上，还有<strong>color, linewidth, linestyle等参数</strong></td>
+    </tr>
+    <tr>
+      <td>plt.xlim(0, 20)</td>
+      <td>设置x轴坐标范围</td>
+    </tr>
+    <tr>
+      <td>plt.ylabel(‘I am y’)</td>
+      <td>设置y轴坐标轴名称</td>
+    </tr>
+    <tr>
+      <td>plt.show()</td>
+      <td>显示图像，在jupyter中经常自动显示了</td>
+    </tr>
+    <tr>
+      <td>plt.pause(0.5)</td>
+      <td>暂停供观察</td>
+    </tr>
+    <tr>
+      <td>plt.ion()</td>
+      <td>打开交互模式</td>
+    </tr>
+    <tr>
+      <td>plt.ioff()</td>
+      <td>关闭交互模式</td>
+    </tr>
+  </tbody>
+</table>
+:ET

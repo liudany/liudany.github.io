@@ -1,0 +1,118 @@
+I"a<p>之前的框架对个人主页的支持不太好，换到HUGO框架。</p>
+
+<h1 id="hugo">HUGO</h1>
+
+<h2 id="安装">安装</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">brew</span> <span class="n">install</span> <span class="n">hugo</span>
+</code></pre></div></div>
+
+<p>注意系统不允许brew不能在sudo权限下运行，怕坏事儿。</p>
+
+<h2 id="创建站点">创建站点</h2>
+
+<pre><code class="language-pyhton">hugo new site blog
+</code></pre>
+
+<h2 id="主页属性修改">主页属性修改</h2>
+
+<p>在config/_default下：</p>
+
+<ul>
+  <li>config.toml可以修改标题等属性。</li>
+  <li>params.toml核心参数，其中包括控制contact中出现的东西。</li>
+  <li>menu.toml控制主页上面的菜单。</li>
+</ul>
+
+<p>在content/home/下有许多widgets的实例，称为section，修改active属性可以决定它们是否出现在主页。也可以修改他们的名字，但是注意要使用连字符而不是空格。</p>
+
+<p>weight决定section们的排列顺序。</p>
+
+<h2 id="bigography">Bigography</h2>
+
+<p>关于个人简历的内容都在content/authors/admin/_index.md中改，可以使用md语法，头像也放在这里。</p>
+
+<p>简历内容可以使用markdown语法！</p>
+
+<h2 id="navigation-links">Navigation Links</h2>
+
+<p>在config/_deafult/menus.toml中可以控制页面最上面Navigation Links的内容和顺序，不需要的注释掉就可以。权重代表出现的先后顺序。</p>
+
+<h2 id="主页面">主页面</h2>
+
+<p>其中的内容都在content/home/下，控制它们的active属性决定这个widget是否显示在主页。其中的design属性决定以那种形式显示该页面的内容。</p>
+
+<p>⚠️在featured publication中使用citation的形式最好看！</p>
+
+<h2 id="添加文章">添加文章</h2>
+
+<ul>
+  <li>加post，直接在content/post下添加md文件即可。</li>
+  <li>加publication，要使用下述命令：</li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hugo new --kind publication publication/&lt;my-publication&gt;
+</code></pre></div></div>
+
+<p>​	这样会在content/publication下建立文章对应的文件夹，其中的index.md文件中确定文章的相关信息，如果有相关图片就放在这个文件夹下。关于主页上文章显示的方式在home/publication中决定。</p>
+
+<p>在页首设置文章的draft属性可以决定博客中是否显示这篇文章。</p>
+
+<h2 id="部署">部署</h2>
+
+<p>逻辑是，先在site文件夹中用hugo命令生成页面，会自动生成至public文件夹，我们之后将public文件夹与github上的name.github.io同步即可。</p>
+
+<h2 id="使用流程">使用流程</h2>
+
+<p>做了改动后，首先hugo生成页面到public，然后到public文件夹中add commit push(-u)三连。</p>
+
+<h1 id="git">Git</h1>
+
+<p>一个项目的主分支成为master，一个完整的git流程分为下面几步：</p>
+
+<p>。fork别人的项目，相当于把别人的任务拿到自己这里。</p>
+
+<ol>
+  <li>clone到本地，进行编辑。</li>
+  <li>做了改动之后，git add命令提交改动，将文件修改添加到缓存区。</li>
+  <li>git commit提交更改，即把缓存区内的所有内容提交到当前分支。-m 参数可以记录改动内容。</li>
+  <li>git push origin master，将改动提交到服务器端。</li>
+</ol>
+
+<p>几个命令：</p>
+
+<ul>
+  <li><code class="highlighter-rouge">git init</code>将当前文件夹初始化为git仓库。</li>
+  <li><code class="highlighter-rouge">git remote add origin xxx.git</code>将本地与远程同步，push的意思就是push到remote端。</li>
+  <li><code class="highlighter-rouge">submodule</code>概念是在一个repo中使用另一个repo作为子模块，带<code class="highlighter-rouge">recursive</code>参数的就是深度更新或者初始化，连带着子模块一起更新。</li>
+</ul>
+
+<h1 id="域名">域名</h1>
+
+<p>在DNS中添加的一些规则，首先<code class="highlighter-rouge">@</code>表示不带www的域名，即dyliu.me。<code class="highlighter-rouge">www</code>表示www.dyliu.me的解析。</p>
+
+<ul>
+  <li>A记录：域名到IP的链接。这里把@和www都指到我的github地址。用了一会儿发现github给的ip地址会一直变动，所以还是用CNAME吧。</li>
+  <li>CNAME：也称别名记录，指定域名到域名的，用这个的话就指定到我的liudany.github.io上去。</li>
+</ul>
+
+<p>用了DNSpod的服务，所以把godaddy中的DNS服务地址改为DNSpod。</p>
+
+<p>DNS部分在<a href="https://console.qcloud.com/">这里</a>管理，微信登录的。</p>
+
+<p>域名在<a href="https://www.godaddy.com/">godaddy</a>管理，微信登录的。</p>
+
+<p>HTTPS根据知乎的<a href="https://www.zhihu.com/question/31377141/answer/103056861">回答</a>搞好的。</p>
+
+<p>修改featured pub的图片大小，文章和abstract字的大小，在_listing.scss文件里。</p>
+
+<p>修改featured pub的左边recent pub标题和右边比例，大标题和第一个文章之间的距离，在featured.html里面。</p>
+
+<p>修改摘要显示多少字，图片的质量，在li_compact里面。</p>
+
+<p>修改featured里文章标题和abstract字体，在_root.scss的h3.</p>
+
+<p>featured里作者信息，_content.scss，metadata</p>
+
+<p>hugo new –kind publication publication/A-Character-Centric-Neural-Model-for-Automated-Story-Generation</p>
+:ET

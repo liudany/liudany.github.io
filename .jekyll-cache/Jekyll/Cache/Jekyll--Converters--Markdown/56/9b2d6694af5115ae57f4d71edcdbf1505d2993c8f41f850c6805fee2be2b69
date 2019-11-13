@@ -1,0 +1,48 @@
+I"�<p>不管什么模型在翻译之前都需要对两种语言的语料进行清洗，达到一种比较清爽的状态，很多都是重复工作，记录下来。</p>
+
+<h1 id="mosedecoder中英语料预处理">Mosedecoder中英语料预处理</h1>
+
+<h2 id="jieba-parallel">Jieba Parallel</h2>
+<p>平常处理的语料库动辄百万级，Jieba提供了并行分词的接口：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">python</span> <span class="o">~/</span><span class="n">jieba</span><span class="o">/</span><span class="n">test</span><span class="o">/</span><span class="n">parallel</span><span class="o">/</span><span class="n">test_file</span><span class="o">.</span><span class="n">py</span> <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">zh</span>
+</code></pre></div></div>
+<p>这是针对文件的分词，第二个参数为汉语文件地址。其中用到函数<code class="highlighter-rouge">jieba.enable_parallel()</code>来开启并行分词，参数为并行进程数，没有参数时会调用所有CPU一起工作。</p>
+
+<h2 id="tokenize">Tokenize</h2>
+<p>英文分词，主要针对<code class="highlighter-rouge">I'm</code>这种缩写分为<code class="highlighter-rouge">I</code>和<code class="highlighter-rouge">'m</code>两个token。</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">~/</span><span class="n">mosesdecoder</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">tokenizer</span><span class="o">/</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">perl</span> <span class="o">-</span><span class="n">l</span> <span class="n">en</span> \
+   <span class="o">&lt;</span> <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">en</span>    \
+   <span class="o">&gt;</span> <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">tok</span><span class="o">.</span><span class="n">en</span> <span class="o">-</span><span class="n">threads</span> <span class="n">N</span>
+</code></pre></div></div>
+<p>这里使用的Mosedecoder的tokenizer只可以对英语、法语和德语等使用。<code class="highlighter-rouge">-l</code>后为目标语言，第二行为输入文件，第三行为输出文件。针对大型语料库可以使用多线程参数<code class="highlighter-rouge">-threads</code>来指定线程数。</p>
+
+<h2 id="truecasing">Truecasing</h2>
+<p>对词汇的大小写进行调整，这里并不是把所有的单词都变成小写，而是首先训练一个模型，统计出每个单词的大小写最常出现的频率，以此为根据来进行调整为所谓的Truecase。</p>
+
+<p>训练统计模型：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">~/</span><span class="n">mosesdecoder</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">recaser</span><span class="o">/</span><span class="n">train</span><span class="o">-</span><span class="n">truecaser</span><span class="o">.</span><span class="n">perl</span> \
+     <span class="o">--</span><span class="n">model</span> <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">truecase</span><span class="o">-</span><span class="n">model</span><span class="o">.</span><span class="n">en</span>  \
+     <span class="o">--</span><span class="n">corpus</span> <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">tok</span><span class="o">.</span><span class="n">en</span>
+</code></pre></div></div>
+<p>利用这个模型来进行大小写转换：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">~/</span><span class="n">mosesdecoder</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">recaser</span><span class="o">/</span><span class="n">truecase</span><span class="o">.</span><span class="n">perl</span> \
+   <span class="o">--</span><span class="n">model</span> <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">truecase</span><span class="o">-</span><span class="n">model</span><span class="o">.</span><span class="n">en</span>         \
+   <span class="o">&lt;</span> <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">tok</span><span class="o">.</span><span class="n">en</span> \
+   <span class="o">&gt;</span> <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">true</span><span class="o">.</span><span class="n">en</span>
+</code></pre></div></div>
+
+<h2 id="cleaning">Cleaning</h2>
+<p>处理语料中过长和过短的句子，将语料中句子长度范围限制在(MIN, MAX)。</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code> <span class="o">~/</span><span class="n">mosesdecoder</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">training</span><span class="o">/</span><span class="n">clean</span><span class="o">-</span><span class="n">corpus</span><span class="o">-</span><span class="n">n</span><span class="o">.</span><span class="n">perl</span> \
+    <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">true</span> <span class="n">en</span> <span class="n">zh</span> \
+    <span class="err">$</span><span class="n">TEXT</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">clean</span> <span class="n">MIN</span> <span class="n">MAX</span>
+</code></pre></div></div>
+<p>这里可以一次性处理源-目标两个文件，生成以.en和.zh结尾的两个结果。</p>
+
+<h2 id="整合">整合</h2>
+<p>把上面4个步骤整合为一个脚本，注意文件操作的一些坑，比如：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">TEXT</span><span class="o">=</span>/data/ldy/dev/NJU-newsdev2018
+</code></pre></div></div>
+<p>这里最后不要加斜杠，这个变量的用法一般为<code class="highlighter-rouge">$TEXT/file</code>。</p>
+:ET

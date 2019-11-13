@@ -1,0 +1,145 @@
+I"�$<p>本文大体为Jay Alammar<a href="https://jalammar.github.io/illustrated-bert/">相关博客</a>和知乎<a href="https://zhuanlan.zhihu.com/p/49271699">好文1</a>和<a href="https://zhuanlan.zhihu.com/p/56865533">好文2</a>的翻译和笔记。</p>
+
+<h1 id="word-embbedding-recap">Word Embbedding Recap</h1>
+
+<p>目的是将词转化为数值的形式以进行计算，现有的Word2Vec等方法都是捕捉语义/词的关系/相似度。</p>
+
+<p>很快大家就发现使用<strong><em>在大语料上预训练好的词向量</em></strong>是很棒的，而不是在随着模型训练阶段同时训练词向量，因为训练阶段往往是小数据集的。这其实就是最早的预训练方法。</p>
+
+<p>使用词向量的方法有两种，Frozen即固定Embedding层参数不动，另一种是Fine-Tuning，就是用预训练的词向量初始化Embedding阵之后，随着训练过程仍然更新这层的参数。</p>
+
+<p>但是这两种无论哪种方式，预训练的词向量，无论上下文如何，词向量是不变化的。</p>
+
+<h1 id="elmo">ELMo</h1>
+
+<h2 id="context-matters">Context matters</h2>
+
+<p>一个词的意思是随着语境变化的，或者说存在多义词问题。<strong><em>ELMo就是一种contextualized word-embedding</em></strong>，全名<strong><em>Embedding from Language Models</em></strong>。它可以根据一个词所存在的上下文来给予它不同的词向量。</p>
+
+<h2 id="architecture">Architecture</h2>
+
+<p>结构上，ELMo基于双向LSTM网络，即两个双层的LSTM，分别以正反向处理句子，这样就能关注前面的词，又蕴含其后面的词的信息。</p>
+
+<h2 id="pre-train-and-downstream">Pre-train and downstream</h2>
+
+<p>预训练时，跟普通的LM类似，<strong>使用大量的无监督语料，做预测下一词任务</strong>，更新整个网络和Embedding，最终我们除了得到Embedding(与普通的LM得到的词向量相同)，<strong>还得到了一个训练好的LSTM网络</strong>。</p>
+
+<p>用于下游任务时，我们将现实的句子输入训练好的网络，第一层是普通Embedding(预训练中训练好的)，后面还有两层hidden state。</p>
+
+<p>⚠️<strong><em>注意这时候我们不用再去预测了，直接拿这三个状态做后续任务。</em></strong></p>
+
+<p><img src="/img/elmo.png" alt="ELMo bi-directional LSTM" /></p>
+
+<p>最终每个单词的词向量，如上图所示是concatenate之后在weighted sum，得到最终ELMo提供的embedding，以供下游任务使用。</p>
+
+<h2 id="缺点">缺点</h2>
+
+<ul>
+  <li>LSTM特征抽取的能力远远弱于Transformer。</li>
+  <li>ELMo只能用于feature extraction即得到新的embedding，并不能fine-tuning。</li>
+</ul>
+
+<h1 id="ulm-fit">ULM-FiT</h1>
+
+<p>三阶段模式，比ELMo添加了一个中间阶段，针对领域语言模型的预训练。</p>
+
+<h1 id="openai-transformer">OpenAI Transformer</h1>
+
+<h2 id="architecture-1">Architecture</h2>
+
+<p>Transformer在捕捉长距离关系上优于LSTM，其结果也自然而然的适用于翻译任务。但是如何才能将其运用到语言模型上，并生成预训练模型用于下游任务呢。</p>
+
+<p>⚠️<strong>OpenAI Transformer is made up of Transformer <em>decoder</em> stack.</strong>⚠️</p>
+
+<p>OpenAI使用了12层transformer的decoder（因为decoder本来就用于预测下一词），没有使用encoder。所以在这种结构下，<strong><em>decoder需要去除coder-decoder attention layer</em></strong>，仅剩带有mask的self-attention和前向网络。训练集是7000本书，因为书中可以蕴含分隔很远的词语之间的关系，这是短文和微博等所不具备的。</p>
+
+<h2 id="transfer-to-downstream-tasks">Transfer to Downstream Tasks</h2>
+
+<p><img src="/img/gpt.png" alt="gpt" /></p>
+
+<p>利用之前预训练好的模型，<strong><em>针对不同任务，使用不同的输入方式</em></strong>，如上图所示。之后会<strong><em>训练整个网络</em></strong>的参数，之前预训练只是初始化，之后的更新成为Fine-tune，使得网络更适合当前任务。</p>
+
+<p><strong><em>⚠️从论文中看来，是取最后一层transformer的最后一个位置的向量，过Linear层。</em></strong></p>
+
+<h2 id="问题">问题</h2>
+
+<p>Transformer Decoder是一个单向预测的语言模型，没利用后文信息。</p>
+
+<h1 id="bert">BERT</h1>
+
+<p>OpenAI所使用的transformer训练语言模型的方法，有一些不足的。在ELMo中使用了<strong><em>双向</em></strong>的LSTM，但是OpenAI只使用了单向的，我们期望得到一种<strong><em>既是基于transformer，又能结合前后文语义</em></strong>的语言模型。</p>
+
+<p><strong>因为decoder的训练方式是根据前n-1个词预测第n个，这注定了它不能看到后面的词，否则就提前知道答案了。</strong></p>
+
+<p>所以BERT使用了Transformer的encoder，全名<strong><em>Bidirectional Encoder Representations from Transformers</em></strong>。</p>
+
+<h2 id="arichitecture">Arichitecture</h2>
+
+<p>⚠️<strong><em>BERT is basically a trained Transformer Encoder stack.</em></strong>⚠️</p>
+
+<p>注意这里的几个词，trained表示BERT是一个<strong>经过预训练</strong>的模型，且是<strong>由Transformer Encoder堆叠</strong>而来。</p>
+
+<ul>
+  <li>原始的Transformer模型有6层encoder，512维前向网络，8 attention heads。</li>
+  <li>BERT Base Version有12层Transformer，前向网络有768维，12 attention heads。</li>
+  <li>BERT Large Version有24层Transformer，前向网络有1024维，16 attention heads。</li>
+</ul>
+
+<h2 id="inputoutput">Input/Output</h2>
+
+<p>使用时，第一个词的位置会输入一个[CLS]标志，stands for Classification。之后与vanilla transformer相同。</p>
+
+<p>在处理分类任务时，我们<strong><em>仅使用[CLS]对应的第一个位置的output vector</em></strong>输入classifier，论文中仅用一层FFN做分类器就取得了很好的效果！</p>
+
+<p>输入的embedding分为三层，位置信息，句子信息和原词的embeeding，叠加得到最终的输入embedding。</p>
+
+<p><img src="/img/bert-input.png" alt="" /></p>
+
+<h2 id="训练方法">训练方法</h2>
+
+<p>BERT<strong><em>使用了mask language model的训练方法</em></strong>。随机mask掉输入句子中15%的词汇，具体来讲，对于这15%的词汇，其中80%被mask替代，10%被一个随机的token替代，另外10%保持原样。这个任务其实跟CBOW有点像，由外面的词去猜中间的一个词。</p>
+
+<p>同时针对Two-sentence Tasks(评价两个句子关系的任务)，为了提高BERT处理句子间关系的能力，预训练过程还包括<strong><em>猜测是否为下一句</em></strong>的任务，如下图。</p>
+
+<p><img src="/img/bert-next-sentence-prediction.png" alt="" /></p>
+
+<h2 id="task-specific-modelsfine-tune">Task specific-Models(fine-tune)</h2>
+
+<p>与GPT一样，针对不同的任务，BERT有不同的使用方法。</p>
+
+<p><img src="/img/bert-tasks.png" alt="" /></p>
+
+<h2 id="for-feature-extractioncontextualized-embedding">for feature extraction(contextualized embedding)</h2>
+
+<p>BERT不只有fine-tuning一种使用方法，也可以跟ELMo一样，使用预训练好的BERT来<strong><em>生成contextualized word embeddings</em></strong>。但是这么多层encoder，我们使用哪一层输出的vector作为embedding比较好呢，看下图。</p>
+
+<p><img src="/img/bert-feature-extraction-contextualized-embeddings.png" alt="" /></p>
+
+<p>图中提到了使用最后一层，使用全部12层的和，仅使用倒数第二(second-to-last)层，使用最后四层的和，和concat最后四层，在NER任务上的表现来看，<strong><em>不一定最后一层就是最好的</em></strong>，相反倒数第二层的结果反而比最后一层好。</p>
+
+<h1 id="gpt-2">GPT 2</h1>
+
+<p>较于GPT1，做了如下改动：</p>
+
+<ul>
+  <li>
+    <p>Transformer stack由12层decoder增加到<strong>48层decoder</strong>，参数15亿，但依然选择单向语言模型。这一点也是为了<strong>适应更大的更高质量的语料库</strong>。</p>
+  </li>
+  <li>
+    <p>语料使用WebText，大概800万网页，主题广数量大，且经过了人工的筛选，适用于任何主题的下游任务。</p>
+  </li>
+  <li>
+    <p>尝试<strong><em>无监督</em></strong>的下游任务，不做任何fine-tune，<strong>以语言模型的形式完成摘要/翻译等任务</strong>，实现方法是在输入中增加<strong>TL:DR</strong>引导，类似google的多语言翻译系统，通过标志符来引导。不管啥任务都一个一个往外蹦字。估计翻译任务是通过BPE在相似语言内共享词表。</p>
+  </li>
+</ul>
+
+<p>综上，<strong>通过提高模型的层数，提高预训练数据的数量/质量/广度</strong>，使得预训练模型有着更广泛的适用性。</p>
+
+<h1 id="mt-dnn">MT-DNN</h1>
+
+<p>出了与BERT类似的无监督LM预训练任务相比，在高层<strong><em>增加了multi-task的多任务有监督训练</em></strong>，且更新底层参数。</p>
+
+<p><img src="/img/mt-dnn.png" alt="" /></p>
+
+<p>底层Shared Layers即BERT，预训练任务也相同。不同之处是在第二阶段的Fine-tune中，通过各种不同的有监督任务，更新所有（包括预训练的底层）参数，使得模型对多任务更具有适应性。</p>
+:ET

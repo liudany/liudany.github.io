@@ -1,0 +1,104 @@
+I"R7<p>AK的这篇文章也是绕不过去的一个坎儿，这篇比较长，闲着没事儿就翻译两句吧，下面开始。</p>
+
+<p>RNN可以实现很多神奇的事情。我依然记得当我训练第一个RNN网络来做图片描述的场景。在几分钟的训练之后（参数随机选择的），我的第一个模型开始生成出非常漂亮且真的有意义的图片描述。在有些时候，很简单的模型也会得到出乎你意料的非常好的结果，现在就是这种时刻了。这个结果令人惊讶的原因是，大家普遍认为RNN应该是很难训练的（随着经验的积累，我越来越倾向于相反的结论）。时间过去一年，我一直在训练RNN网络，也见证了许多次RNN非凡的效果和健壮性。直到现在为止，RNN魔术般地输出仍然令我感到迷惑，这篇文章想与大家分享一些神奇的时刻。</p>
+
+<p><strong>我们将训练RNN网络来生成字符级的文本，并考虑这么一个问题“这到底是怎么做到的？”</strong></p>
+
+<p>我也会在Github上分享多层LSTM搭建的字符级别语言模型。只要输入很长的文本，模型就可以学习按字符生成同样风格的文章。你也可以用它来复现我下面讲到的实验，但是首先，RNN到底是什么？</p>
+
+<h1 id="循环神经网络">循环神经网络</h1>
+
+<h2 id="序列">序列</h2>
+
+<p>基于你自己的背景知识，你可能会想：是什么让循环网络如此特殊？普通的神经网络（Vanilla Neural Networks），甚至是普通的卷积神经网络，它们最大的限制是，它们的借口太过于局限了，只能接受固定大小的输入向量，并生成一个固定尺寸的输出。不仅如此，这些模型还是用了固定的计算步骤来完成这些工作（例如网络中的层数是固定的）。而循环网络最令人兴奋的一点就是，它可以在输入的序列上做计算：输入可以是一个序列，输出也可以是一个序列，或者更普遍的来讲，输入与输出都是序列的形式。举几个更确切的例子：</p>
+
+<p><img src="/img/rnn-diags.jpeg" alt="" /></p>
+
+<p>图中每一个矩形是一个向量，箭头表示函数（例如矩阵乘法）。红色的是输入向量，蓝色的是输出向量，绿色矩形用来保存RNN的状态（一会儿会讲到这里）。从左到右依次为：
+（1）一对一，普通的神经网络模式，固定尺寸的输出到固定尺寸的输出，例如图像分类。
+（2）一对多，序列输出，例如对一张图片生成一段话的文字描述。
+（3）多对一，序列输入，例如文本情感分析，给定一段话，判断句子感情的极性。
+（4）多对多，不等长。序列输入到序列输出。例如机器翻译，RNN模型读取一段英文的句子，并输入一个可能不等长的法语句子。
+（5）多对多，等长。同步的序列输入到序列输出。例如视频分类，我们希望对视频的每一帧对打上一个标签。
+注意到在上面的每一种模式下，我们都没有预先指定序列的长度，这是因为绿色的循环变换是可以根据需要来多次应用的。</p>
+
+<p>若你所期望的一样，一个普通的大小确定的网络从固定计算步骤（层数）上开始，就注定是失败的，而序列结构的计算比这要强得多；因此，这种序列结构对想要建立更加智能的系统的我们而言，也是更有吸引力的。不仅如此，也正如我们一会儿将要看到的，RNN以固定（但是可学习）的方法结合了<strong>输入向量</strong>和<strong>状态向量</strong>，来输出一个新的状态向量。在编程角度讲，这可以解释为运行具有某些输入和一些内部变量的固定程序（程序是固定的，但是变量是可以学习的）。从这个角度来看，RNN的定义也描述了对应的程序。事实上，一个有着合适参数的RNN网络是可以模拟任意一个程序的。但是，类似于神经网络的通用逼近定理（Universal approxiamation theorems），你不应该在这上面浪费太多时间，忘记我刚才说的话吧。</p>
+
+<p><strong>如果说训练普通的神经网络是在函数上进行优化，那训练循环网络就是在程序上进行优化。</strong></p>
+
+<h2 id="没有序列的输入输出时的序列化处理">没有序列的输入输出时的序列化处理</h2>
+
+<p>你也许会认为输入或输出是一个序列的情况是比较少见的，但是要认识到的一点是，即使输入输出都是固定大小的向量，仍然是可以使用有效的序列化方法来处理它们的。例如，下面的两幅图展示了<a href="http://deepmind.com/">DeepMind两篇优秀论文</a>的研究成果。左边是基于循环网络策略的在图片上不断转移注意力的算法。具体来说，它学习了从左到右的读取门牌号的方法。右图是循环网络通过学习序列化的在背景填色来生成数字图像的例子。</p>
+
+<p>这两个例子想要告诉你的是，即使你的数据并不是序列形式的，仍然可以使用序列化的处理方法来仿真和训练出强大的模型。这种模型学习的是一个有状态的，能够处理固定大小数据的程序。</p>
+
+<h2 id="rnn的计算方法">RNN的计算方法</h2>
+
+<p>所以这种模型是如何工作的？本质上讲，RNN有着一个简单却有欺骗性的接口：它接受一个输入向量x并产生输出y。然而，关键在于，输出向量y的内容不仅与最近的一个输入有关，也与过去输入的所有输入有关。用一个类来封装RNN，其API由一个单步的函数step组成：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rnn</span> <span class="o">=</span> <span class="n">RNN</span><span class="p">()</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">rnn</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>RNN有很多内部状态，每次step被调用时，状态会被更新。最简单的一种情况是，内部状态只有一个单独的<strong>隐藏状态向量h</strong>。下面是原始RNN的step函数的实现：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">RNN</span><span class="p">:</span>
+	<span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+		<span class="c1"># h = W_1 * h + W_2 * x
+</span>		<span class="c1"># y = W_3 * h
+</span>		<span class="bp">self</span><span class="o">.</span><span class="n">h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W_hh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W_xh</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+		<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W_hy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">y</span>
+</code></pre></div></div>
+
+<p>上面的代码描述了原始RNN前向传播的过程。这个RNN的参数矩阵有个三个，W_hh，W_xh和W_hy。隐藏状态self.h初始化为零向量。np.tanh函数将输出限制到[-1, 1]。简单的看一下工作流程：tanh内有两个元素组成，一个基于上一步的隐藏状态，另一个基于当前的输入。np.dot执行矩阵乘法操作。这两个中间状态通过加法相互作用，再经过tanh压缩之后，成为新的状态向量。如果你对数学表达感到更加舒服的话，我们可以将隐藏状态的更新过程表示为：<strong>h_t = tanh(W_hh * h_t-1 + W_xh * x_t)</strong>，这里tanh是对每个元素进行的操作。</p>
+
+<p>RNN中的各个参数矩阵使用随机初始化的方法，训练过程中我们在寻找可以使目标行为上升的参数矩阵，通常通过某种损失函数来度量。损失函数表征着对于输入序列x，你更希望得到什么样的输出y。</p>
+
+<h2 id="网络加深">网络加深</h2>
+
+<p>RNN是神经网络，如果你戴上深度学习的帽子，并像堆煎饼一样堆积模型，你会发现模型的效果会越来越好（前提是被正确执行）。例如，我们可以按照下面的方式组合两层循环神经网络：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y1</span> <span class="o">=</span> <span class="n">rnn1</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">rnn2</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">y1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>换句话说，我们有两个分离的RNN网络：一个接收输入向量x，另一个接收第一层网络的输出作为其输入。一切都是向量在模型中来来去去，并且梯度会在反向传播时在每个模型之中穿过。</p>
+
+<h2 id="加点想象力">加点想象力</h2>
+
+<p>我想简要的提一下，实际上我们大部分时候使用的网络都是较刚才的模型有一些改进的LSTM网络。LSTM是一种具体的循环神经网络模型。LSTM的参数更新公式和一些吸引人的动态反向传播，使得它在实际工作中有着良好的效果。我不会去说太多细节，但是所有RNN的工作流程都是相似的，除了在计算参数更新时会有一些区别（在计算<strong>self.h = …时</strong>）。从这里开始我会交替使用LSTM和RNN这两个术语，但是这篇文章里所有的实验都是使用LSTM模型实现的。</p>
+
+<h1 id="字符级rnn语言模型">字符级RNN语言模型</h1>
+
+<p>现在我们了解了什么是RNN，它令人兴奋的原因和工作的原理了。现在我们将RNN落实到一个有趣的应用：我们将会训练一个字符级别的语言模型。我们将会喂给RNN一些文本，让网络来预测给定字符序列的时候，下一个字符的概率分布。我们可以利用该模型一次生成一个新的字符（字母）。</p>
+
+<p>举个例子，我们词表中有四个字母”helo”，我们想通过训练集”hello”来训练一个RNN网络。这个训练集实际上可以分为4个样本：</p>
+<ol>
+  <li>在”h”后可能出现”e”。</li>
+  <li>在”he”后可能出现”l”。</li>
+  <li>在”hel”后可能出现”l”。</li>
+  <li>在”hell”后可能出现”o”.</li>
+</ol>
+
+<p>对于词表中每一个字母进行one-hot编码，并一次性喂入RNN的step函数中。我们将会观察到一个4维的输出向量，每一个维度表示某一个字符出现在序列中下一个位置的置信度。流程图如下：</p>
+
+<p><img src="/img/charseq.jpeg" alt="" /></p>
+
+<p>上图为一个输入和输出维度为4，隐藏层维度为3的RNN网络。该流程图展示了当网络输入”hell”时的前向传播过程。输出向量中包含RNN分配给可能在下一位置出现的各字符的置信度。我们希望绿色的数字更高，而红色的数字更低一些。</p>
+
+<p>举个例子，在第一个时间步我们输入”h”，生成的输出向量分别为”helo”四个字母分配了不同的概率。由训练集可知，下一个正确的字符是”e”，我们想要增大”e”所在位置的数值，而减小其他位置的数值。在4个时间步中这个过程都是类似的。由于RNN完全由可微分的运算组成，因此我们可以进行反向传播算法，来确定每一个权重该往哪个方向变化调整，才能使得整体的得分更高一些。反向传播之后我们进行参数更新，在梯度方向上微调每一个权重变量。在参数更新之后，我们使用同样的数据输入RNN，会发现输出中正确字符的概率有所提高，不正确的有所下降。我们重复这个过程直到网络收敛，其预测最终与训练数据一样，总能预测出接下来的正确字符。</p>
+
+<p>一个更技术性的解释是，我们同时对每个输出矢量使用了Softmax分类器，也称为交叉熵损失函数。RNN使用的小批量随机梯度下降法，且我喜欢用RMSProp或者Adam（每个参数自适应学习率）优化器来稳定的更新参数。</p>
+
+<p>当第一次输入”l”的时候，目标输出是”l”；而第二次输入”l”的时候，目标输出是”o”。所以RNN不能仅仅依靠当前时刻的输入，它必须也适用循环关系来记录前文的信息以完成任务。</p>
+
+<p>在测试时，我们喂入RNN一个字母，就可以得到接下来一个字母的概率分布。我们从这个分布中取样，并将其作为下一步的输入。重复这个过程你会得到整个生成的文本。下面我们会利用不同的数据集来训练这个RNN网络，看看会发生些什么。</p>
+
+<h1 id="rnn作乐">RNN作乐</h1>
+
+<h2 id="paul-graham">Paul Graham</h2>
+<h2 id="shakespeare">Shakespeare</h2>
+<h2 id="wikipedia">Wikipedia</h2>
+<h2 id="latex">Latex</h2>
+<h2 id="linux-source-code">Linux Source Code</h2>
+<h2 id="baby-names">Baby Names</h2>
+:ET

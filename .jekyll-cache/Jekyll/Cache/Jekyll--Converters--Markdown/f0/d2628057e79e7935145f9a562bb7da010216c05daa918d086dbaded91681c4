@@ -1,0 +1,114 @@
+I"�<h1 id="traditional-language-model">Traditional Language Model</h1>
+
+<p>语言模型计算一个词序列出现的概率，例如机器翻译到底取哪个译出来的句子，要看哪个在对应语言的语言模型中概率更高。</p>
+
+<p>但是直接计算所有潜在sequence的概率太麻烦了，所以，简化这个问题为：<strong>由前面n个词预测下一个位置出现各词的概率，更简单的说为n-gram方法。</strong></p>
+
+<script type="math/tex; mode=display">P \left( w _ { 1 } , \ldots , w _ { m } \right) = \prod _ { i = 1 } ^ { m } P \left( w _ { i } | w _ { 1 } , \ldots , w _ { i - 1 } \right) \approx \prod _ { i = 1 } ^ { m } P \left( w _ { i } | w _ { i - n + 1 } , \ldots , w _ { i - 1 } \right)</script>
+
+<p>传统方法基于计数，统计co-occur概率来决定下一个词，或使用n-gram来统计，这种方法占用大量内存，RAM requirement。</p>
+
+<h1 id="rnn">RNN</h1>
+
+<p>不再用n-gram了，可以直接使用全部的上下文信息。同一个单元重复使用，这样不受训练集篇章长度的影响（传统方法中，篇章越长要保存的n-gram信息越多），再长我也只用一个单元进行计算。<strong>Use the same weight W at all time step.</strong></p>
+
+<ul>
+  <li>对输入x和隐藏状态h进行concatenate和进行分别加权相加，由分块矩阵计算可以得知是等价的。</li>
+  <li>参数共享，在一次训练中每个time-step处的W是一致的，直到最后一个time-step为止，计算loss，再更新W。所以对同一个sequence的每一个time-step而言，W是一个常数，并不是每个time-step更新这个参数。</li>
+</ul>
+
+<h2 id="vanishing-or-exploding-gradient-problem">Vanishing or exploding gradient problem</h2>
+
+<p>计算反向传播，其中关于隐状态h的一项为：</p>
+
+<script type="math/tex; mode=display">\frac { \partial h _ { j } } { \partial h _ { j - 1 } } \leq \beta _ { W } \beta _ { h }</script>
+
+<p>累积到time-step上，导数累积：
+<script type="math/tex">\frac { \partial h _ { t } } { \partial h _ { k } } = \prod _ { j = k + 1 } ^ { t } \frac { \partial h _ { j } } { \partial h _ { j - 1 } } \leq \left( \beta _ { W } \beta _ { h } \right) ^ { t - k }</script></p>
+
+<p>而最终的这个指数函数非常容易变得特别大，或者特别小。</p>
+
+<h3 id="solution">Solution</h3>
+
+<ul>
+  <li>在中间层使用Sigmoid激活函数的前后段梯度太平，所以改用ReLU，但是ReLU的后半段都是0，也容易造成梯度消失，于是有了Leaky-ReLU（都是用在中间层）。</li>
+  <li>将Whh初始化为单位矩阵。</li>
+</ul>
+
+<h2 id="deep-bidirectional-rnn">Deep Bidirectional RNN</h2>
+
+<p><img src="/img/bi-rnn.png" alt="" /></p>
+
+<ul>
+  <li>如图，双向严格来说是两个RNN，两个方向并没有信息的交流。在实际实现时直接<strong>调换输入序列的顺序</strong>即可。在每一个time-step做预测时，把两个方向得到的ht做一个concatenate，作为最终的隐状态。</li>
+  <li>Deep而言，每一个time-step得到的隐状态y作为下一层的输入即可。</li>
+</ul>
+
+<h1 id="machine-translation">Machine Translation</h1>
+
+<h2 id="encoder-decoder">Encoder-decoder</h2>
+
+<p>decoder is a conditional-language model, where the condition is the representation of source sentence.</p>
+
+<h2 id="google-multi-lingual-mt-system">Google Multi-lingual MT system</h2>
+
+<p>Parameters are shared implicitly in one <strong>single model</strong>  .</p>
+
+<p>Add artificial token at the beginning of the <strong>input sentence</strong> to indicate the <strong>target language</strong>.</p>
+
+<p>zero-shot translation，即实现训练期间没有遇到过的<strong>language pair</strong>。</p>
+
+<p>以前是用bridge，中间语言做跳板，使用n个encoder和n个decoder就可以了。NMT中间的representation可以作为一个很好的interlingua。</p>
+
+<h2 id="attention">Attention</h2>
+
+<p>只是用source representation来做条件的问题是，只有短句表现好，长句子不行。</p>
+
+<p>与其只用最后一个hidden_state，为不如用encoder所有的hidden_state，这些hidden_state成为了一种random acces memory类似的东西，retrieve as neede。</p>
+
+<p>Attention model 类似 alignment model，但是二者不同。<strong>Phrase-based SMT aligned words in a preprocessing-step, usually using EM.</strong>但是attention在翻译的时候，利用了一些对齐的信息，构造了一个利用了对齐信息的系统，不一样。</p>
+
+<p>具体算法为，在每一步对encoder中的每个time-step的hidden_state做一个score，<strong>输入是decoder的hidden_state而不是输出的单词，因为hidden_state的训练方法表示了其对于词义消歧有着更好的效果，因为词向量是词在不同场景下含义的平均，LSTM会根据上下文解释它的具体含义。</strong>，归一化之后（softmax），按权重将所有隐藏层状态累和得到一个<strong>context vector</strong>，和<strong>previous hidden state</strong>，和<strong>previous word of the decoder</strong>，一起用来生成下一个词。</p>
+
+<p>如何得到分数？简单方法是做dot product找类似的，但是使用高级的神经网络更好，是可学习的方法，有个不好的地方是，拼接decoder上一个hidden state和encoder所有的hidden的坏处是，这二者之间只是拼接，不会产生交互（单层有这问题，多了就不会）。而在简单的dot中加入一个Wa矩阵，分配权重，实现了交互，参数也少。</p>
+
+<p>从global attention进展到local attention，只对source states的一个subset打分。</p>
+
+<p>短句是难翻译的，因为数据集噪声，可能是一个标题，也可能是日常短句。</p>
+
+<p>attention的初始第一步是值得注意的，输入作为什么？</p>
+
+<h3 id="the-idea-of-coverage">the idea of coverage</h3>
+
+<p>在两个方向做attention。coverage-based attention。</p>
+
+<p>fertility，attention放在一个位置是不好的，反对上面的。</p>
+
+<h2 id="decoder的工作">decoder的工作</h2>
+
+<p>穷举所有句子并打分。不要想了太大了。</p>
+
+<p>sample based，已经生成t-1个词了，得到t个词的概率，然后采样，直到得到<EOS>。但是方差非常大，每次得到的句子却不一样。无偏但方差大。</EOS></p>
+
+<p>Greedy search，接触下一个词概率最高的词，不断生成概率最高的词，不断选最好的词。但是这样不能在全局上保证是最好的，因为每一步都是贪婪的。方差小？</p>
+
+<p>Beam search，每一次生成后面最有可能的5个，下一个时间步就有5x5一共25个，这时候选出25个钟最好的5个，我们一直保持其5个。k非常大就是无偏的。</p>
+
+<p>目前最好的办法用小beam，5或者10，大的beam也不会增强很多效果。但是smt用大beam，类似100和150。</p>
+
+<h1 id="再一次理解gru和lstm">再一次理解GRU和LSTM</h1>
+
+<p>GRU自适应的shortcut connections，除了标准的RNN的先行计算以外，加入一个比例系数ut和(1-ut)，</p>
+
+<h1 id="word-generation-problem">Word Generation Problem</h1>
+
+<h2 id="big-vocab-problem">Big vocab problem</h2>
+
+<p>缩小词表不太好。解决方法：</p>
+
+<p>hierarchical models, tree-structured vocab.但是这种二分的方法不适用于GPU计算。</p>
+
+<p>Cho: small vocab at train time, test time, 选取最常见的K的功能词，总之是更有效率的处理一个仍然很大的softmax，但是对新词还是没办法。</p>
+
+<p>subword.</p>
+:ET

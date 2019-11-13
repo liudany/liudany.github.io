@@ -1,0 +1,80 @@
+I"<h1 id="variable">Variable</h1>
+
+<p>Autograd中的核心数据结构是Variable，其封装了Tensor并记录对其的操作以构建计算图，一个Variable主要包括下面三个属性：</p>
+
+<ul>
+  <li>data: 包含了Variable所包含的Tensor数据。</li>
+  <li>grad: 与data相同形状，记录了data的梯度，也是一个Variable。也就是说调用梯度数据的方法为v.grad.data。</li>
+  <li>grad_fn: 指向一个Function，基于当前的Variable<strong>是什么操作得来的</strong>，grad_fn就是这种操作的反向传播函数，用于构建计算图。</li>
+</ul>
+
+<p>构建一个Variable出了需要传入一个Tensor，还有<code class="highlighter-rouge">requires_grad</code>和<code class="highlighter-rouge">volatile</code>两个参数可选。</p>
+
+<p>注意Variable支持绝大部分的Tensor操作，但是没有inplace操作，因为要自动求导的话需要用到原始数据，不可以随意修改。</p>
+
+<ul>
+  <li>Variable每次反向传播都累加梯度，要清空的话<code class="highlighter-rouge">v.grad.data.zeros_()</code></li>
+  <li>叶子结点是没有子节点的节点，一棵树的最下方的。根结点是最上方的一个节点。当用户创建一个Variable的时候，它就是一个叶子结点，对应的<code class="highlighter-rouge">grad_fn = None</code>，进行运算就是往上进行运算堆叠。</li>
+</ul>
+
+<p><strong>Variable.backward(grad_variables = W)：将一个向量Variable先按照同形的W来加权，得到一个标量，再根据这个标量对叶子节点来分别求导。若Variable本身就是一个标量，那可以省略这个参数默认为1。</strong></p>
+
+<h1 id="计算图">计算图</h1>
+
+<p>计算过程实际构建了一个从叶子结点到根结点的计算图，反向传播即为从根节点往下的溯源过程。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>变量</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="highlighter-rouge">v.grad_fn</code></td>
+      <td>指向<strong>创建</strong>该Variable的Function</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">v.grad_fn.next_functions</code></td>
+      <td>本节点接收的上级节点的Function，即创建上级节点的Function</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>注意v.grad_fn是一个Function变量，表示该Variable是怎么来的。而Function变量含有<code class="highlighter-rouge">.next_functions</code>方法查看其反向传播中下面节点的Function，<strong>注意其返回值是一个tuple</strong>，内部元素也是<code class="highlighter-rouge">(Function, num)</code>类型的tuple，所以常用<code class="highlighter-rouge">v.grad_fn.next_functions[0][0]</code>这种用法。</p>
+
+<p>若是用户创建的Variable，即叶子结点，其<code class="highlighter-rouge">v.grad_fn = None</code>。但若在其上级节点中的<code class="highlighter-rouge">.next_functions</code>中查看，没有将<code class="highlighter-rouge">requires_grad</code>置位的依然为None，将<code class="highlighter-rouge">requires_grad</code>置位的类型为<code class="highlighter-rouge">AccumulatedGrad</code>，即前面讲过的梯度累加的叶子结点。</p>
+
+<p><code class="highlighter-rouge">v.backward(retain_graph = True)</code>意为在进行反向传播后，保存计算图及中间结果，为False时自动释放计算图。一般不用设置为True。</p>
+
+<p>PytTorch的运算图是在前向传播时动态构建的，不需要像某T框架一样设计好计算图框架。这一点在自然语言处理中很有用？</p>
+
+<p><code class="highlighter-rouge">volatile = True</code>这个在PyTorch0.4.0版本中已经被弃用，改为<code class="highlighter-rouge">torch.no_grad():</code>环境下运行无反向传播的代码。</p>
+
+<p>在一次<code class="highlighter-rouge">v.backward()</code>执行完毕后，中间变量的.grad数据都被清空为None，只保留叶子结点的grad。查看根节点z对中间结点y的梯度可以用<code class="highlighter-rouge">t.autograd.grad(z, y)</code>或者hook函数，方法如下：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">variable_hook</span><span class="p">(</span><span class="n">hook</span><span class="p">):</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">'y的梯度：</span><span class="se">\r\n</span><span class="s">'</span><span class="p">,</span> <span class="n">grad</span><span class="p">)</span>
+<span class="n">hook_handle</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">register_hook</span><span class="p">(</span><span class="n">variable_hook</span><span class="p">)</span>
+<span class="n">z</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="n">hook_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+</code></pre></div></div>
+<p>注意用完之后注销hook。</p>
+
+<h1 id="扩展autograd">扩展autograd</h1>
+
+<p>没有集成的一些特殊函数可以自行实现前向传播和反向传播，且手动求导并实现会比系统集成的更快。</p>
+
+<h1 id="线性回归">线性回归</h1>
+
+<p>在画图时不要用Variable变量进行运算，不要在计算图中引入无关的变量。几个注意的点：</p>
+
+<ol>
+  <li><code class="highlighter-rouge">t.rand()</code>为(0, 1)内的均匀分布，<code class="highlighter-rouge">t.randn()</code>为正态分布。</li>
+  <li>前向传播时标准写法：<code class="highlighter-rouge">y_pred = x.mm(w) + b.expand_as(x)</code>，而利用Broadcast可以写为<code class="highlighter-rouge">y_pred = x * w + b</code>，因为此处为直线所以可以这么写，重载的加减乘除为<code class="highlighter-rouge">element-wise</code>元素操作。</li>
+  <li><code class="highlighter-rouge">loss = 0.5 * (y_pred - y) ** 2</code>注意这里的y_pred - y也是element-wise操作，反向传播前将其变为标量：<code class="highlighter-rouge">loss = loss.sum()</code>。</li>
+  <li>更新参数时：<code class="highlighter-rouge">w.data.sub_(w.grad.data * lr)</code>，这里第一注意只有tensor才有inplace操作，所以更新<code class="highlighter-rouge">w.data</code>；第二查看variable的梯度用<code class="highlighter-rouge">w.grad.data</code>，.grad也是一个varibale变量；第三个记得要乘学习率！要乘学习率！要乘学习率！</li>
+  <li>想做图时，要用到w和b做运算记得用他们的data，即<code class="highlighter-rouge">y = w.data * x + b.data</code>，避免在计算图中引入多余操作。</li>
+  <li>每一个循环的最后注意<code class="highlighter-rouge">w.grad.data.zero_()</code>，因为创建的variable梯度是累加的。</li>
+</ol>
+:ET

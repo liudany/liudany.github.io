@@ -1,0 +1,57 @@
+I"�<h2 id="intro">Intro</h2>
+
+<p>Existing vocabulary selection approach is based on word frequency, which is difficult to <strong>optimize for specific NLP task</strong>.</p>
+
+<p>Therefore, authors proposed a vocabulary selection algorithm based on <strong>variational dropout</strong>: learn a dropout probability of each word in vocabulary during the model training on a specific task, and the probabilty will imply the importance to the word in this task. After that the probabilty could be leveraged with a threshold for vocabulary  selection.</p>
+
+<h2 id="proposed-method">Proposed Method</h2>
+
+<h3 id="bernouli-dropout">Bernouli Dropout</h3>
+
+<p>Firstly authors use a Bernouli variable to simulate dropout process.
+<script type="math/tex">E ( x | \mathbf { b } ) = ( \mathbf { b } \odot \text { OneHot } ( x ) ) \cdot W</script>
+where b is a Bernouli dropout noise with $b _ { i } \sim \operatorname { Bern } \left( 1 - p _ { i } \right)$. Next we should infer the latent distribution b with parameters p. Define the objective function and derive its ELBO:
+<script type="math/tex">% <![CDATA[
+\begin{aligned} & \log \mathcal { L } \left( f _ { \theta } ( \mathbf { x } ) , y \right) = \log \int _ { \mathbf { b } } \mathcal { L } \left( f _ { \theta } ( E ( \mathbf { x } | \mathbf { b } ) ) , y \right) \mathcal { P } ( \mathbf { b } ) d \mathbf { b } \\\\ \geq & \underset { \mathbf { b } \sim B \operatorname { ern } ( \overline { \mathbf { P } } ) } { \mathbb { E } } \left[ \log \mathcal { L } \left( f _ { \theta } ( E ( \mathbf { x } | \mathbf { b } ) ) , y \right) \right] - K L ( \operatorname { Bern } ( \overline { \mathbf { p } } ) \| \mathcal { P } ( \mathbf { b } ) ) \end{aligned} %]]></script>
+Where P(b) is prior distribution. However, we need to enumerate 2^V different values to compute the expectation over b(Bern).</p>
+
+<h3 id="gaussian-relaxation">Gaussian Relaxation</h3>
+
+<p>Authors replace the Bernouli by a Gaussian noise z:
+<script type="math/tex">E ( x | z ) = ( \mathbf { z } \odot \text { OneHot } ( x ) ) \cdot W</script>
+where z follows $z _ { i } \sim \mathcal { N } \left( 1 , \alpha _ { i } = \frac { p _ { i } } { 1 - p _ { i } } \right)$. Notice that p and alpha are one-to-one corresponded, and alpha is a monotonously increasing function of p.</p>
+
+<p>After lerning the Gaussian distribution, we could throw away words with alpha above a certain threshold.</p>
+
+<p>Authors re-interpret the input noise z as the intrinsic stochasticity in the embedding martix as follows:
+<script type="math/tex">E ( x | z ) = \text { OneHot } ( x ) \cdot B</script>
+where $B _ { i j } \sim \mathcal { N } \left( \mu _ { i j } = W _ { i j } , \sigma _ { i j } ^ { 2 } = \alpha _ { i } W _ { i j } ^ { 2 } \right)$. This interpretation can be regarded as putting the variance to the embedding matrix itself instead of the one-hot vector.</p>
+
+<p>Thus, the ELBO can be written as follows:
+<script type="math/tex">\begin{array} { c } { \log \mathcal { L } \left( f _ { \theta } ( \mathbf { x } ) , y \right) ) = \log \int _ { B } \mathcal { L } \left( f _ { \theta } ( E ( \mathbf { x } | z ) ) , y \right) \mathcal { P } ( B ) d B } \\\\ { \geq \underset { B \sim \mathcal { N } ( \mu , \sigma ) } { \mathbb { E } } \left[ \log \mathcal { L } \left( f _ { \theta } ( E ( \mathbf { x } | z ) ) , y \right) \right] - K L ( \mathcal { N } ( \mu , \sigma ) \| \mathcal { P } ( B ) ) } \end{array}</script></p>
+
+<h3 id="prior-and-kl">Prior and KL</h3>
+
+<p>Here authors choose the prior distribution P(B) as an odd distribution named “inproper log-scaled uniform distribution” to guarantee that the KL term only depends on dropout ratio alpha. Formally:
+<script type="math/tex">\mathcal { P } \left( \log \left| B _ { i j } \right| \right) = \mathrm { const } \rightarrow \mathcal { P } \left( \left| B _ { i j } \right| \right) \propto \frac { 1 } { \left| B _ { i j } \right| }</script>
+Notice that there exists no closed -form expression for such KL-divergence, authors approximate it as follows:
+<script type="math/tex">% <![CDATA[
+\begin{aligned} D _ { K L } & = - k _ { 1 } \sigma \left( k _ { 2 } + k _ { 3 } \log \alpha \right) + \frac { 1 } { 2 } \log \left( 1 + \frac { 1 } { \alpha } \right) + k _ { 1 } \\\\ k _ { 1 } & = 0.63576 \quad k _ { 2 } = 1.87320 \quad k _ { 3 } = 1.48695 \end{aligned} %]]></script>
+Finally, a higher alpha_i indicates less performance loss caused by dropping ith word.</p>
+
+<h2 id="问题">问题</h2>
+
+<p>隐变量模型</p>
+
+<p>和 variational method</p>
+
+<p>推lower bound</p>
+
+<p>infer到底指的是什么</p>
+
+<p>综合一下Multi-aspect，vocabulary和vae推导过程</p>
+
+<p>伯努利要采样2的v次方次？那高斯是怎么记觉得</p>
+
+<p>要看variational dropout</p>
+:ET

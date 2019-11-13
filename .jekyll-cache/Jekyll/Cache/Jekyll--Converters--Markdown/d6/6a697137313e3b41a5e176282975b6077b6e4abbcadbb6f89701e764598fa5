@@ -1,0 +1,138 @@
+I"�/<p>From <a href="https://github.com/pytorch/examples/">pytorchExample</a>.</p>
+
+<h2 id="model">Model</h2>
+
+<ul>
+  <li>
+    <p>init_hidden()</p>
+
+    <p>Usually we implement the init_hidden() function <strong><em>inside our model class.</em></strong> Because we can use some <code class="highlighter-rouge">self.</code> variable of the class such like <code class="highlighter-rouge">nlayer, batch_size and hidden_size</code>.</p>
+  </li>
+  <li>
+    <p>Init_weights()</p>
+
+    <p>The default init method is kaiming_uniform_.</p>
+  </li>
+  <li>
+    <p>repackage_hidden()</p>
+
+    <p>If we do not detach the hidden state from previous graph at the beginning of each epoch, it will raise error:</p>
+
+    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">RuntimeError</span><span class="p">:</span> <span class="n">Trying</span> <span class="n">to</span> <span class="n">backward</span> <span class="n">through</span> <span class="n">the</span> <span class="n">graph</span> <span class="n">a</span> <span class="n">second</span> <span class="n">time</span><span class="p">,</span> <span class="n">but</span> <span class="n">the</span> <span class="n">buffers</span> <span class="n">have</span> <span class="n">already</span> <span class="n">been</span> <span class="n">freed</span><span class="o">.</span> <span class="n">Specify</span> <span class="n">retain_graph</span><span class="o">=</span><span class="bp">True</span> <span class="n">when</span> <span class="n">calling</span> <span class="n">backward</span> <span class="n">the</span> <span class="n">first</span> <span class="n">time</span><span class="o">.</span>
+</code></pre></div>    </div>
+
+    <p>When we do <code class="highlighter-rouge">loss.backward()</code>, loss is dependent of hidden while hidden is dependent of previous hidden. If we do not detach it, the backward() function will <strong>go through all the way to start of the dataset.</strong> But the calculation based on previous dataset has already been bp once and the <strong>graph has been freed.</strong></p>
+  </li>
+  <li>
+    <p>dropout layer</p>
+
+    <p>Do it twice, <strong>AFTER embedding and AFTER the forward.</strong></p>
+  </li>
+</ul>
+
+<h2 id="main">Main</h2>
+
+<ol>
+  <li>
+    <p>About hidden state</p>
+
+    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">run_train</span><span class="p">():</span>
+  <span class="n">hidden</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">init_hidden</span><span class="p">()</span>	<span class="c1"># return zeros tensor
+</span>  <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">train_iter</span><span class="p">):</span>
+    <span class="n">hidden</span> <span class="o">=</span> <span class="n">hidden</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>	<span class="c1"># detach hidden from last iteration 
+</span>    <span class="n">output</span><span class="p">,</span> <span class="n">hidden</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">hidden</span><span class="p">)</span> <span class="c1"># use the last hidden from last iter
+</span></code></pre></div>    </div>
+
+    <p>In this example, the batch data is consecutive from the same source text, so the hidden state can be reused in next iteration. <strong>But it has to be detached from previous graph.</strong></p>
+  </li>
+  <li>
+    <p>Difference between eval / train / test</p>
+
+    <p>When eval you do not need to do <code class="highlighter-rouge">loss.backward()</code> and <code class="highlighter-rouge">optimizer.step()</code>. Just return <code class="highlighter-rouge">eval_loss</code> at the end of the function.</p>
+
+    <p><strong><em>Wrap eval&amp;test with torch.no_grad, calc loss but no bp.</em></strong></p>
+  </li>
+  <li>
+    <p>Framework</p>
+
+    <p>a general framework:</p>
+
+    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+  <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+  <span class="n">run_train</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>	<span class="c1"># 每个epoch相关的都写在run_epoch里面，包括读数据/前向/损失/优化
+</span>  <span class="n">model</span><span class="o">.</span><span class="nb">eval</span><span class="p">()</span>	<span class="c1"># close drop, norm etc.
+</span>  <span class="n">run_eval</span><span class="p">(</span><span class="nb">eval</span><span class="p">)</span>	<span class="c1"># wrapped with torch.no_grad, calc loss but no bp.
+</span>     
+  <span class="n">calc</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+     
+<span class="n">run_eval</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>	<span class="c1"># 这里和eval用相同的函数即可
+</span></code></pre></div>    </div>
+  </li>
+  <li>
+    <p>Loss calculation</p>
+
+    <p>At the beginning of each epoch, define <code class="highlighter-rouge">total_loss=0</code>. Accumulate loss of every batch until interval and print average loss(<code class="highlighter-rouge">total_loss/interval</code>)  and define <code class="highlighter-rouge">total_loss=0</code> to restart accumulate.</p>
+
+    <p>Besides, use <code class="highlighter-rouge">time.time()</code> to record elapsed time, like <code class="highlighter-rouge">elapsed = time.time() - start_time</code>.</p>
+  </li>
+  <li>
+    <p>save model and checkpoint</p>
+  </li>
+</ol>
+
+<h2 id="generator">Generator</h2>
+
+<ol>
+  <li>Prepare.</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">model</span><span class="o">.</span><span class="nb">eval</span><span class="p">()</span>
+<span class="n">hidden</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">initHidden</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>	<span class="c1"># bsz = 1, hidden (1(num_layer), 1(bsz), hidden_size)
+</span></code></pre></div></div>
+
+<ol>
+  <li>Pick a start word randomly.</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">field</span><span class="o">.</span><span class="n">vocab</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="nb">long</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ol>
+  <li>Output to file and no grad.</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">'generated.txt'</span><span class="p">,</span> <span class="s">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">outf</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+</code></pre></div></div>
+
+<ol>
+  <li>Feed forward, note that output size: <code class="highlighter-rouge">(bsz=1, ts=1, len(vocab))</code>.</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>	<span class="c1"># total 1000 words
+</span>            <span class="n">output</span><span class="p">,</span> <span class="n">hidden</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">hidden</span><span class="p">)</span>	<span class="c1"># feed forward
+</span></code></pre></div></div>
+
+<ol>
+  <li>1.0 is the temperature, <strong>higher will increase diversity **(like label smoothing). **The exp() is used for convert weights to positive numbers for next multinomial function.</strong></li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>            <span class="n">word_weights</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">div</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span><span class="o">.</span><span class="n">exp</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+  					<span class="c1"># use multinomial function to pick word by weight, [0] converts 1 dim to 0 dim
+</span>            <span class="n">word_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">multinomial</span><span class="p">(</span><span class="n">word_weights</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="nb">input</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="n">word_idx</span><span class="p">)</span>	<span class="c1"># update input, we dont need to record history.
+</span>            <span class="n">word</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">vocab</span><span class="o">.</span><span class="n">itos</span><span class="p">[</span><span class="n">word_idx</span><span class="p">]</span>
+            <span class="n">outf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">word</span> <span class="o">+</span> <span class="p">(</span><span class="s">'</span><span class="se">\n</span><span class="s">'</span> <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">20</span> <span class="o">==</span> <span class="mi">19</span> <span class="k">else</span> <span class="s">' '</span><span class="p">))</span>	<span class="c1"># print \n every 20 steps
+</span></code></pre></div></div>
+
+<p>Here <code class="highlighter-rouge">input.fill(word_idx)</code> updates input with generated word_idx. We don’t need to record all the previous words because they were encoded in hidden state.</p>
+
+<ol>
+  <li>Print log.</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">'| Generated {}/{} words'</span><span class="o">.</span><span class="nb">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">1000</span><span class="p">))</span>
+</code></pre></div></div>
+
+:ET

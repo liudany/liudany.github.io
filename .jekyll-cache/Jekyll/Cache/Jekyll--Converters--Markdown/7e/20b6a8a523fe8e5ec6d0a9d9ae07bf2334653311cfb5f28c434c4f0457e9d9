@@ -1,0 +1,357 @@
+I"�<p>记一下重复工作。</p>
+
+<h2 id="pre-processs">Pre-processs</h2>
+
+<p>语料的预处理，包括中文的分词，英文的tokenize，lowercase等。</p>
+
+<p>中文部分基于Jieba，英文部分基于Mosesdecoder。</p>
+
+<p>英文部分经过以下预处理：首先将所有字符转换为小写形式，然后去除不可识别的符号，之后进行英语的tokenize，最后再清除掉长于250和短于3的句子。中文部分利用Jieba分词对于语料进行并行化分词处理，对应的清理掉过长和过短的句子，并按照100:1的比例划分训练集与验证集。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">SCRIPTS</span><span class="o">=</span>/home/dyliu/fairseq/examples/translation/mosesdecoder/scripts
+<span class="nv">BPEROOT</span><span class="o">=</span>/data/dyliu/fairseq/examples/translation/subword-nmt
+<span class="nv">JIEBA</span><span class="o">=</span>/data/dyliu/jieba/test/parallel
+
+<span class="nv">TOKENIZER</span><span class="o">=</span><span class="nv">$SCRIPTS</span>/tokenizer/tokenizer.perl
+<span class="nv">LC</span><span class="o">=</span><span class="nv">$SCRIPTS</span>/tokenizer/lowercase.perl
+<span class="nv">CLEAN</span><span class="o">=</span><span class="nv">$SCRIPTS</span>/training/clean-corpus-n.perl
+<span class="nv">NORM_PUNC</span><span class="o">=</span><span class="nv">$SCRIPTS</span>/tokenizer/normalize-punctuation.perl
+<span class="nv">REM_NON_PRINT_CHAR</span><span class="o">=</span><span class="nv">$SCRIPTS</span>/tokenizer/remove-non-printing-char.perl
+
+<span class="nv">src</span><span class="o">=</span>en
+<span class="nv">tgt</span><span class="o">=</span>zh
+<span class="nv">lang</span><span class="o">=</span>en-zh
+
+<span class="nv">OUTDIR</span><span class="o">=</span>ccmt2019
+<span class="nv">prep</span><span class="o">=</span><span class="nv">$OUTDIR</span>
+<span class="nv">tmp</span><span class="o">=</span><span class="nv">$prep</span>/tmp
+
+<span class="nb">mkdir</span> <span class="nt">-p</span> <span class="nv">$tmp</span> <span class="nv">$prep</span>
+
+<span class="nv">file</span><span class="o">=</span>input
+
+<span class="nb">echo</span> <span class="s2">"pre-processing English data..."</span>
+<span class="nb">cat</span> <span class="nv">$file</span>.<span class="nv">$src</span> | <span class="se">\</span>
+	perl <span class="nv">$LC</span> | <span class="se">\</span>
+	perl <span class="nv">$NORM_PUNC</span> en | <span class="se">\</span>
+	perl <span class="nv">$REM_NON_PRINT_CHAR</span> | <span class="se">\</span>
+	perl <span class="nv">$TOKENIZER</span> <span class="nt">-threads</span> 8 <span class="nt">-a</span> <span class="nt">-l</span> en <span class="o">&gt;&gt;</span> <span class="nv">$tmp</span>/train.tags.<span class="nv">$lang</span>.tok.<span class="nv">$src</span>
+
+
+<span class="nb">echo</span> <span class="s2">"pre-processing Chinese data..."</span>
+
+python <span class="nv">$JIEBA</span>/test_file.py ./<span class="nv">$file</span>.<span class="nv">$tgt</span> 
+
+<span class="nb">mv</span> ./train.tags.en-zh.tok.zh <span class="nv">$tmp</span>/
+
+<span class="nb">echo</span> <span class="s2">"splitting train and valid..."</span>
+<span class="k">for </span>l <span class="k">in</span> <span class="nv">$src</span> <span class="nv">$tgt</span><span class="p">;</span> <span class="k">do
+    </span><span class="nb">awk</span> <span class="s1">'{if (NR%100 == 0)  print $0; }'</span> <span class="nv">$tmp</span>/train.tags.<span class="nv">$lang</span>.tok.<span class="nv">$l</span> <span class="o">&gt;</span> <span class="nv">$tmp</span>/valid.<span class="nv">$l</span>
+    <span class="nb">awk</span> <span class="s1">'{if (NR%100 != 0)  print $0; }'</span> <span class="nv">$tmp</span>/train.tags.<span class="nv">$lang</span>.tok.<span class="nv">$l</span> <span class="o">&gt;</span> <span class="nv">$tmp</span>/train.<span class="nv">$l</span>
+<span class="k">done</span>
+
+<span class="c">#echo "learn_bpe.py on ${file}..."</span>
+<span class="c">#BPE_TOKENS=40000</span>
+<span class="c">#BPR_CODE=./code</span>
+<span class="c">#python $BPEROOT/learn_bpe.py -s $BPE_TOKENS &lt; $file &gt; $BPE_CODE</span>
+
+<span class="c">#echo "apply_bpe.py to ${file}..."</span>
+<span class="c">#python $BPEROOT/apply_bpe.py -c $BPE_CODE &lt; $file &gt; bpe.$file</span>
+
+
+<span class="nb">echo</span> <span class="s2">"cleaning data..."</span>
+perl <span class="nv">$CLEAN</span> <span class="nt">-ratio</span> 1.5 <span class="nv">$tmp</span>/train <span class="nv">$src</span> <span class="nv">$tgt</span> <span class="nv">$prep</span>/train 1 250
+perl <span class="nv">$CLEAN</span> <span class="nt">-ratio</span> 1.5 <span class="nv">$tmp</span>/valid <span class="nv">$src</span> <span class="nv">$tgt</span> <span class="nv">$prep</span>/valid 1 250
+</code></pre></div></div>
+
+<p>⚠️这里不确定BPE对中英翻译是否有效，先注释掉后面再试。</p>
+
+<h2 id="train">Train</h2>
+
+<h3 id="fairseq-preprocess">fairseq-preprocess</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">TEXT</span><span class="o">=</span>/data/dyliu/script/ccmt2019
+fairseq-preprocess <span class="nt">--source-lang</span> en <span class="nt">--target-lang</span> zh <span class="se">\</span>
+    <span class="nt">--trainpref</span> <span class="nv">$TEXT</span>/train <span class="nt">--validpref</span> <span class="nv">$TEXT</span>/valid <span class="se">\</span>
+    <span class="nt">--destdir</span> data-bin/ccmt2019 <span class="nt">--nwordstgt</span> 50000 <span class="nt">--nwordssrc</span> 50000
+</code></pre></div></div>
+
+<p>这一步建立词表并转换为二进制文件以备后面训练。</p>
+
+<h3 id="fairseq-train">fairseq-train</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">mkdir</span> <span class="o">-</span><span class="n">p</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">fconv</span><span class="o">-</span><span class="n">ccmt</span><span class="o">-</span><span class="n">test</span>
+<span class="n">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="mi">3</span> <span class="n">fairseq</span><span class="o">-</span><span class="n">train</span> <span class="n">data</span><span class="o">-</span><span class="nb">bin</span><span class="o">/</span><span class="n">ccmt2019</span> \
+    <span class="o">--</span><span class="n">lr</span> <span class="mf">0.25</span> <span class="o">--</span><span class="n">clip</span><span class="o">-</span><span class="n">norm</span> <span class="mf">0.1</span> <span class="o">--</span><span class="n">dropout</span> <span class="mf">0.2</span> <span class="o">--</span><span class="nb">max</span><span class="o">-</span><span class="n">tokens</span> <span class="mi">4000</span> \
+    <span class="o">--</span><span class="n">arch</span> <span class="n">transformer</span> <span class="o">--</span><span class="n">save</span><span class="o">-</span><span class="nb">dir</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">fconv</span><span class="o">-</span><span class="n">ccmt</span><span class="o">-</span><span class="n">test</span>
+</code></pre></div></div>
+
+<p>默认使用全部GPU，所以设置可见GPU的数目。</p>
+
+<p>⚠️注意这里以max-tokens的形式确定batch的大小。</p>
+
+<h2 id="结果记录">结果记录</h2>
+
+<h3 id="fconv-casia2015">fconv casia2015</h3>
+
+<p>当前词表阈值设置为0，预处理的英文词表30w+，中文20w+。模型参数265809872。</p>
+
+<p>fconv框架下出现</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>| WARNING: ran out of memory with exception: CUDA out of memory. Tried to allocate 4.37 GiB <span class="o">(</span>GPU 0<span class="p">;</span> 10.92 GiB total capacity<span class="p">;</span> 4.59 GiB already allocated<span class="p">;</span> 1.52 GiB free<span class="p">;</span> 4.18 GiB cached<span class="o">)</span><span class="p">;</span>
+ Skipping batch
+| WARNING: OOM <span class="k">in </span>all workers, skipping update
+</code></pre></div></div>
+
+<p>改变词表试一下，preprocess里面用<code class="highlighter-rouge">--thresholdtgt</code> 和<code class="highlighter-rouge">--thresholdsrc</code>参数，设置个2试试。</p>
+
+<p>设置为2的时候，en语料清洗0.5%左右，10W词表。zh17W词表，1%左右被替换。</p>
+
+<p>还是同样的错误。</p>
+
+<p>使用<code class="highlighter-rouge">—nwordssrc</code>和<code class="highlighter-rouge">-nwordstgt</code>直接设置词表大小。</p>
+
+<p>5W词表大小，替换1.18%的英文。替换掉3.5%的中文。参数大小139592864。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center">vocab_size_en</th>
+      <th style="text-align: center">vocab_size_zh</th>
+      <th style="text-align: center">threshold</th>
+      <th style="text-align: center">Replace(en/zh%)</th>
+      <th style="text-align: center">parameters</th>
+      <th style="text-align: center">oom</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center">300,000</td>
+      <td style="text-align: center">200,000</td>
+      <td style="text-align: center">0</td>
+      <td style="text-align: center">0</td>
+      <td style="text-align: center">265,809,872</td>
+      <td style="text-align: center">yes</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">100,000</td>
+      <td style="text-align: center">170,000</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">yes</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">50,000</td>
+      <td style="text-align: center">50,000</td>
+      <td style="text-align: center">-</td>
+      <td style="text-align: center">1.18/3.5</td>
+      <td style="text-align: center">139,592,864</td>
+      <td style="text-align: center">no</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>看了几篇ACL文章，都是30k左右的vocab，英文覆盖率普遍比较高，99%以上，中文在97%以上。</p>
+
+<h3 id="transformer">Transformer</h3>
+
+<p>先跑iwslt14 de-en试试。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="mi">1</span> <span class="n">fairseq</span><span class="o">-</span><span class="n">train</span> <span class="n">data</span><span class="o">-</span><span class="nb">bin</span><span class="o">/</span><span class="n">iwslt14</span><span class="o">.</span><span class="n">tokenized</span><span class="o">.</span><span class="n">de</span><span class="o">-</span><span class="n">en</span> \
+  <span class="o">-</span><span class="n">a</span> <span class="n">transformer_iwslt_de_en</span> <span class="o">--</span><span class="n">optimizer</span> <span class="n">adam</span> <span class="o">--</span><span class="n">lr</span> <span class="mf">0.0005</span> <span class="o">-</span><span class="n">s</span> <span class="n">de</span> <span class="o">-</span><span class="n">t</span> <span class="n">en</span> \
+  <span class="o">--</span><span class="n">label</span><span class="o">-</span><span class="n">smoothing</span> <span class="mf">0.1</span> <span class="o">--</span><span class="n">dropout</span> <span class="mf">0.3</span> <span class="o">--</span><span class="nb">max</span><span class="o">-</span><span class="n">tokens</span> <span class="mi">4000</span> \
+  <span class="o">--</span><span class="nb">min</span><span class="o">-</span><span class="n">lr</span> <span class="s">'1e-09'</span> <span class="o">--</span><span class="n">lr</span><span class="o">-</span><span class="n">scheduler</span> <span class="n">inverse_sqrt</span> <span class="o">--</span><span class="n">weight</span><span class="o">-</span><span class="n">decay</span> <span class="mf">0.0001</span> \
+  <span class="o">--</span><span class="n">criterion</span> <span class="n">label_smoothed_cross_entropy</span> <span class="o">--</span><span class="nb">max</span><span class="o">-</span><span class="n">update</span> <span class="mi">50000</span> \
+  <span class="o">--</span><span class="n">warmup</span><span class="o">-</span><span class="n">updates</span> <span class="mi">4000</span> <span class="o">--</span><span class="n">warmup</span><span class="o">-</span><span class="n">init</span><span class="o">-</span><span class="n">lr</span> <span class="s">'1e-07'</span> \
+  <span class="o">--</span><span class="n">adam</span><span class="o">-</span><span class="n">betas</span> <span class="s">'(0.9, 0.98)'</span> <span class="o">--</span><span class="n">save</span><span class="o">-</span><span class="nb">dir</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">transformer</span>
+</code></pre></div></div>
+
+<p>报错：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>TypeError: Class advice impossible <span class="k">in </span>Python3.  Use the @implementer class decorator instead.
+</code></pre></div></div>
+
+<p>先尝试更新pytorch版本，0.4-&gt;1.0，解决了。</p>
+
+<p>处理语料，合并所有提供的语料并跑预处理脚本。</p>
+
+<p>先预处理</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">TEXT</span><span class="o">=</span>/data/dyliu/script/ccmt2019
+fairseq-preprocess <span class="nt">--source-lang</span> en <span class="nt">--target-lang</span> zh <span class="se">\</span>
+    <span class="nt">--trainpref</span> <span class="nv">$TEXT</span>/train <span class="nt">--validpref</span> <span class="nv">$TEXT</span>/valid <span class="se">\</span>
+    <span class="nt">--destdir</span> data-bin/ccmt2019 <span class="nt">--nwordstgt</span> 50000 <span class="nt">--nwordssrc</span> 50000
+</code></pre></div></div>
+
+<p>在4卡上，综合语料上，600W+，跑5W的词表，跑en-zh。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span>0 fairseq-train data-bin/ccmt2019 <span class="se">\</span>
+  <span class="nt">-a</span> transformer <span class="nt">--optimizer</span> adam <span class="nt">--lr</span> 0.0005 <span class="nt">-s</span> en <span class="nt">-t</span> zh <span class="se">\</span>
+  <span class="nt">--label-smoothing</span> 0.1 <span class="nt">--dropout</span> 0.3 <span class="nt">--max-tokens</span> 4000 <span class="se">\</span>
+  <span class="nt">--min-lr</span> <span class="s1">'1e-09'</span> <span class="nt">--lr-scheduler</span> inverse_sqrt <span class="nt">--weight-decay</span> 0.0001 <span class="se">\</span>
+  <span class="nt">--criterion</span> label_smoothed_cross_entropy <span class="nt">--max-update</span> 50000 <span class="se">\</span>
+  <span class="nt">--warmup-updates</span> 4000 <span class="nt">--warmup-init-lr</span> <span class="s1">'1e-07'</span> <span class="se">\</span>
+  <span class="nt">--adam-betas</span> <span class="s1">'(0.9, 0.98)'</span> <span class="nt">--save-dir</span> checkpoints/transformer-en-zh
+</code></pre></div></div>
+
+<p>跑完了，这个条件是50000步，不知道会不会有问题。</p>
+
+<p>下面测试。要处理xml格式数据。</p>
+
+<p>先试试interactive，首先要指定模型和文件夹，下面有语言，要显示规定语言对</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fairseq-interactive data-bin/ccmt2019/ <span class="nt">--path</span> checkpoints/transformer/checkpoint_best.pt <span class="se">\</span>
+	 		<span class="nt">-s</span> en <span class="nt">-t</span> zh
+</code></pre></div></div>
+
+<p>总共需要4个参数，第一个是字典存在的文件夹，第二个是需要的checkpoint，接下来是指定的语言扩展名，用于找词典。</p>
+
+<p>交互式的方法要注意人工添加BPE标志，人工</p>
+
+<p>在8卡上，同样的预料，泡个fcov。注意切到fairseq环境下，source activate fairseq。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span>3 fairseq-train data-bin/ccmt2019 <span class="se">\</span>
+    <span class="nt">--lr</span> 0.25 <span class="nt">--clip-norm</span> 0.1 <span class="nt">--dropout</span> 0.2 <span class="nt">--max-tokens</span> 4000 <span class="se">\</span>
+    <span class="nt">--arch</span> fconv <span class="nt">--save-dir</span> checkpoints/fconv-ccmt2019
+</code></pre></div></div>
+
+<p>参数139592864。词表一样大无所谓语言？</p>
+
+<h2 id="文件处理">文件处理</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">grep </span>pattern file
+<span class="nb">grep</span> <span class="s1">'&lt;seg id'</span> filename
+</code></pre></div></div>
+
+<p>文本搜索命令，返回的是符合的行。</p>
+
+<p>sed命令一次处理一行，</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sed</span> <span class="o">[</span><span class="nt">-nefri</span><span class="o">]</span> <span class="o">[</span>动作]
+</code></pre></div></div>
+
+<p>参数方面一般指定e，n是silent模式，f直接写在文件里，i直接改变文件</p>
+
+<p>动作是[n1, n2] function，前两个数字指定行数。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sed</span> <span class="s2">"s/my/ldy's/g"</span> test.txt
+</code></pre></div></div>
+
+<p>s是替代，my是匹配的，ldy’s是替换成的，g是每一行所有匹配</p>
+
+<p>sed命令没有改写，除非 -i 直接改变文件，或者 &gt;</p>
+
+<p>-e 是多个匹配时用。</p>
+
+<p>在每行的头添加字符，比如”HEAD”，命令如下：</p>
+
+<p>sed ‘s/^/HEAD&amp;/g’ test.file</p>
+
+<p>在每行的行尾添加字符，比如“TAIL”，命令如下：</p>
+
+<p>sed ‘s/$/&amp;TAIL/g’ test.file</p>
+
+<p>具体来讲处理xml文件：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="nb">grep</span> <span class="s1">'&lt;seg id'</span> <span class="nv">$orig</span>/test-full/newstest2014-fren-<span class="nv">$t</span>.<span class="nv">$l</span>.sgm | <span class="se">\</span>
+        <span class="nb">sed</span> <span class="nt">-e</span> <span class="s1">'s/&lt;seg id="[0-9]*"&gt;\s*//g'</span> | <span class="se">\</span>
+        <span class="nb">sed</span> <span class="nt">-e</span> <span class="s1">'s/\s*&lt;\/seg&gt;\s*//g'</span> | <span class="se">\</span>
+        <span class="nb">sed</span> <span class="nt">-e</span> <span class="s2">"s/</span><span class="se">\’</span><span class="s2">/</span><span class="se">\'</span><span class="s2">/g"</span> | <span class="se">\</span>
+    perl <span class="nv">$TOKENIZER</span> <span class="nt">-threads</span> 8 <span class="nt">-a</span> <span class="nt">-l</span> <span class="nv">$l</span> <span class="o">&gt;</span> <span class="nv">$tmp</span>/test.<span class="nv">$l</span>
+</code></pre></div></div>
+
+<h2 id="现在来generate">现在来generate</h2>
+
+<p>现在preprocess它</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fairseq-preprocess <span class="nt">--source-lang</span> en <span class="nt">--target-lang</span> zh <span class="se">\</span>
+    <span class="nt">--testpref</span> <span class="nb">test</span><span class="se">\</span>
+    <span class="nt">--destdir</span> data-bin/ccmt2019 <span class="nt">--srcdict</span> data-bin/ccmt2019/dict.en.txt<span class="se">\</span>
+    <span class="nt">--tgtdict</span> data-bin/ccmt2019/dict.zh.txt
+</code></pre></div></div>
+
+<p>这样可以只处理test，注意preprocess和待处理的文件应该在同一个路径下面执行。</p>
+
+<p>指定两种lang可以限制名字。</p>
+
+<p>然后generate</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span>3 fairseq-generate data-bin/ccmt2019/ <span class="nt">--path</span> checkpoints/transformer-en-zh-infinite/checkpoint_best.pt <span class="nt">--batch-size</span> 128 <span class="nt">--beam</span> 5 <span class="nt">--source-lang</span> en <span class="nt">--target-lang</span> zh
+</code></pre></div></div>
+
+<p>说名字不对，test没找到，路径问题，上面preprocess在当前路径下执行。</p>
+
+<p>改好了。AttributeError: ‘NoneType’ object has no attribute ‘sizes’ 。</p>
+
+<p>这是因为要有对比的，会有一个h s p 和target的对比，即必须要有target语言。即preprocess不可以只提供一种语言，不可以only-source，在data-bin里必须要target的内容。</p>
+
+<p>注意要以&gt;的形式输出到文件。</p>
+
+<p>之后正则匹配掉前后无关的东西。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">grep</span> <span class="s1">'H'</span> dev.output | <span class="nb">sed</span> <span class="s1">'s/H-[0-9]*\t-[0-9]*.[0-9]*\t//g'</span>|sed <span class="s1">'s/ //g '</span><span class="o">&gt;</span>test.output
+</code></pre></div></div>
+
+<p>就ok了。</p>
+
+<h2 id="回过头调transformer">回过头调transformer</h2>
+
+<p>之前</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span>3 fairseq-train data-bin/ccmt2019 <span class="se">\</span>
+  <span class="nt">-a</span> transformer <span class="nt">--optimizer</span> adam <span class="nt">--lr</span> 0.0005 <span class="nt">-s</span> zh <span class="nt">-t</span> en <span class="se">\</span>
+  <span class="nt">--label-smoothing</span> 0.1 <span class="nt">--dropout</span> 0.3 <span class="nt">--max-tokens</span> 4000 <span class="se">\</span>
+  <span class="nt">--min-lr</span> <span class="s1">'1e-09'</span> <span class="nt">--lr-scheduler</span> inverse_sqrt <span class="nt">--weight-decay</span> 0.0001 <span class="se">\</span>
+  <span class="nt">--criterion</span> label_smoothed_cross_entropy <span class="se">\</span>
+  <span class="nt">--warmup-updates</span> 4000 <span class="nt">--warmup-init-lr</span> <span class="s1">'1e-07'</span> <span class="se">\</span>
+  <span class="nt">--adam-betas</span> <span class="s1">'(0.9, 0.98)'</span> <span class="nt">--save-dir</span> checkpoints/transformer-zh-en
+</code></pre></div></div>
+
+<p>有三种停止条件，max-epoch max-update和min-lr，默认的min_lr 1e-09。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Namespace<span class="o">(</span><span class="nv">activation_dropout</span><span class="o">=</span>0.0, <span class="nv">activation_fn</span><span class="o">=</span><span class="s1">'relu'</span>, <span class="nv">adam_betas</span><span class="o">=</span><span class="s1">'(0.9, 0.98)'</span>, <span class="nv">adam_eps</span><span class="o">=</span>1e-08, <span class="nv">adaptive_input</span><span class="o">=</span>False, <span class="nv">adaptive_softmax_cutoff</span><span class="o">=</span>None, <span class="nv">adaptive_softmax_dropout</span><span class="o">=</span>0, <span class="nb">arch</span><span class="o">=</span><span class="s1">'transformer'</span>, <span class="nv">attention_dropout</span><span class="o">=</span>0.0, <span class="nv">bucket_cap_mb</span><span class="o">=</span>25, <span class="nv">clip_norm</span><span class="o">=</span>25, <span class="nv">cpu</span><span class="o">=</span>False, <span class="nv">criterion</span><span class="o">=</span><span class="s1">'label_smoothed_cross_entropy'</span>, <span class="nv">curriculum</span><span class="o">=</span>0, <span class="nv">data</span><span class="o">=</span><span class="s1">'data-bin/ccmt2019'</span>, <span class="nv">dataset_impl</span><span class="o">=</span><span class="s1">'cached'</span>, <span class="nv">ddp_backend</span><span class="o">=</span><span class="s1">'c10d'</span>, <span class="nv">decoder_attention_heads</span><span class="o">=</span>8, <span class="nv">decoder_embed_dim</span><span class="o">=</span>512, <span class="nv">decoder_embed_path</span><span class="o">=</span>None, <span class="nv">decoder_ffn_embed_dim</span><span class="o">=</span>2048, <span class="nv">decoder_final_norm</span><span class="o">=</span>False, <span class="nv">decoder_input_dim</span><span class="o">=</span>512, <span class="nv">decoder_layers</span><span class="o">=</span>6, <span class="nv">decoder_learned_pos</span><span class="o">=</span>False, <span class="nv">decoder_normalize_before</span><span class="o">=</span>False, <span class="nv">decoder_output_dim</span><span class="o">=</span>512, <span class="nv">device_id</span><span class="o">=</span>0, <span class="nv">disable_validation</span><span class="o">=</span>False, <span class="nv">distributed_backend</span><span class="o">=</span><span class="s1">'nccl'</span>, <span class="nv">distributed_init_method</span><span class="o">=</span>None, <span class="nv">distributed_no_spawn</span><span class="o">=</span>False, <span class="nv">distributed_port</span><span class="o">=</span><span class="nt">-1</span>, <span class="nv">distributed_rank</span><span class="o">=</span>0, <span class="nv">distributed_world_size</span><span class="o">=</span>1, <span class="nv">dropout</span><span class="o">=</span>0.3, <span class="nv">encoder_attention_heads</span><span class="o">=</span>8, <span class="nv">encoder_embed_dim</span><span class="o">=</span>512, <span class="nv">encoder_embed_path</span><span class="o">=</span>None, <span class="nv">encoder_ffn_embed_dim</span><span class="o">=</span>2048, <span class="nv">encoder_layers</span><span class="o">=</span>6, <span class="nv">encoder_learned_pos</span><span class="o">=</span>False, <span class="nv">encoder_normalize_before</span><span class="o">=</span>False, <span class="nv">find_unused_parameters</span><span class="o">=</span>False, <span class="nv">fix_batches_to_gpus</span><span class="o">=</span>False, <span class="nv">fp16</span><span class="o">=</span>False, <span class="nv">fp16_init_scale</span><span class="o">=</span>128, <span class="nv">fp16_scale_tolerance</span><span class="o">=</span>0.0, <span class="nv">fp16_scale_window</span><span class="o">=</span>None, <span class="nv">keep_interval_updates</span><span class="o">=</span><span class="nt">-1</span>, <span class="nv">keep_last_epochs</span><span class="o">=</span><span class="nt">-1</span>, <span class="nv">label_smoothing</span><span class="o">=</span>0.1, <span class="nv">lazy_load</span><span class="o">=</span>False, <span class="nv">left_pad_source</span><span class="o">=</span><span class="s1">'True'</span>, <span class="nv">left_pad_target</span><span class="o">=</span><span class="s1">'False'</span>, <span class="nv">log_format</span><span class="o">=</span>None, <span class="nv">log_interval</span><span class="o">=</span>1000, <span class="nv">lr</span><span class="o">=[</span>0.0005], <span class="nv">lr_scheduler</span><span class="o">=</span><span class="s1">'inverse_sqrt'</span>, <span class="nv">max_epoch</span><span class="o">=</span>0, <span class="nv">max_sentences</span><span class="o">=</span>None, <span class="nv">max_sentences_valid</span><span class="o">=</span>None, <span class="nv">max_source_positions</span><span class="o">=</span>1024, <span class="nv">max_target_positions</span><span class="o">=</span>1024, <span class="nv">max_tokens</span><span class="o">=</span>4000, <span class="nv">max_update</span><span class="o">=</span>0, <span class="nv">memory_efficient_fp16</span><span class="o">=</span>False, <span class="nv">min_loss_scale</span><span class="o">=</span>0.0001, <span class="nv">min_lr</span><span class="o">=</span>1e-09, <span class="nv">no_epoch_checkpoints</span><span class="o">=</span>False, <span class="nv">no_progress_bar</span><span class="o">=</span>False, <span class="nv">no_save</span><span class="o">=</span>False, <span class="nv">no_token_positional_embeddings</span><span class="o">=</span>False, <span class="nv">num_workers</span><span class="o">=</span>0, <span class="nv">optimizer</span><span class="o">=</span><span class="s1">'adam'</span>, <span class="nv">optimizer_overrides</span><span class="o">=</span><span class="s1">'{}'</span>, <span class="nv">raw_text</span><span class="o">=</span>False, <span class="nv">required_batch_size_multiple</span><span class="o">=</span>8, <span class="nv">reset_lr_scheduler</span><span class="o">=</span>False, <span class="nv">reset_meters</span><span class="o">=</span>False, <span class="nv">reset_optimizer</span><span class="o">=</span>False, <span class="nv">restore_file</span><span class="o">=</span><span class="s1">'checkpoint_last.pt'</span>, <span class="nv">save_dir</span><span class="o">=</span><span class="s1">'checkpoints/transformer-en-zh-infinite'</span>, <span class="nv">save_interval</span><span class="o">=</span>1, <span class="nv">save_interval_updates</span><span class="o">=</span>0, <span class="nv">seed</span><span class="o">=</span>1, <span class="nv">sentence_avg</span><span class="o">=</span>False, <span class="nv">share_all_embeddings</span><span class="o">=</span>False, <span class="nv">share_decoder_input_output_embed</span><span class="o">=</span>False, <span class="nv">skip_invalid_size_inputs_valid_test</span><span class="o">=</span>False, <span class="nv">source_lang</span><span class="o">=</span><span class="s1">'en'</span>, <span class="nv">target_lang</span><span class="o">=</span><span class="s1">'zh'</span>, <span class="nv">task</span><span class="o">=</span><span class="s1">'translation'</span>, <span class="nv">tensorboard_logdir</span><span class="o">=</span><span class="s1">''</span>, <span class="nv">threshold_loss_scale</span><span class="o">=</span>None, <span class="nv">train_subset</span><span class="o">=</span><span class="s1">'train'</span>, <span class="nv">update_freq</span><span class="o">=[</span>1], <span class="nv">upsample_primary</span><span class="o">=</span>1, <span class="nv">user_dir</span><span class="o">=</span>None, <span class="nv">valid_subset</span><span class="o">=</span><span class="s1">'valid'</span>, <span class="nv">validate_interval</span><span class="o">=</span>1, <span class="nv">warmup_init_lr</span><span class="o">=</span>1e-07, <span class="nv">warmup_updates</span><span class="o">=</span>4000, <span class="nv">weight_decay</span><span class="o">=</span>0.0001<span class="o">)</span>
+| <span class="o">[</span>en] dictionary: 50000 types
+| <span class="o">[</span>zh] dictionary: 50000 types
+</code></pre></div></div>
+
+<h2 id="tensorboard">tensorboard</h2>
+
+<p>怎么开这个。</p>
+
+<h2 id="结果记录-1">结果记录</h2>
+
+<p>现在30023 8卡机器在跑的是fconv-ccmt2019，跑完了。测一下</p>
+
+<p>40023 4卡机器在跑的是transformer-en-zh-infinite，这名字是一开始我以为不设置结束条件就无限制（其实有min_lr）。</p>
+
+<p>现在问题是生成的句子是乱序的</p>
+
+<p>去了H，然后sort -n，再去数字</p>
+
+<p>应该在generate的时候同时算bleu，不要后来算</p>
+
+<p>算BLUE分字还是分词？</p>
+
+<h2 id="方案">方案</h2>
+
+<p>back-translation</p>
+
+<p>model fusion + LM</p>
+
+<p>多模型融合</p>
+
+<h2 id="测试阶段">测试阶段</h2>
+
+<p>第一步，处理好test<strong>双语</strong>数据，包括分词，放到fairseq文件夹下 main。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="mi">0</span> <span class="n">fairseq</span><span class="o">-</span><span class="n">train</span> <span class="n">data</span><span class="o">-</span><span class="nb">bin</span><span class="o">/</span><span class="n">yzp</span><span class="o">-</span><span class="mi">2</span> \
+  <span class="o">-</span><span class="n">a</span> <span class="n">transformer</span> <span class="o">--</span><span class="n">optimizer</span> <span class="n">adam</span> <span class="o">--</span><span class="n">lr</span> <span class="mf">0.0005</span> <span class="o">-</span><span class="n">s</span> <span class="n">zh</span> <span class="o">-</span><span class="n">t</span> <span class="n">en</span> \
+  <span class="o">--</span><span class="n">label</span><span class="o">-</span><span class="n">smoothing</span> <span class="mf">0.1</span> <span class="o">--</span><span class="n">dropout</span> <span class="mf">0.3</span> <span class="o">--</span><span class="nb">max</span><span class="o">-</span><span class="n">tokens</span> <span class="mi">4000</span> \
+  <span class="o">--</span><span class="nb">min</span><span class="o">-</span><span class="n">lr</span> <span class="s">'1e-09'</span> <span class="o">--</span><span class="n">lr</span><span class="o">-</span><span class="n">scheduler</span> <span class="n">inverse_sqrt</span> <span class="o">--</span><span class="n">weight</span><span class="o">-</span><span class="n">decay</span> <span class="mf">0.0001</span> \
+  <span class="o">--</span><span class="n">criterion</span> <span class="n">label_smoothed_cross_entropy</span> \
+  <span class="o">--</span><span class="n">warmup</span><span class="o">-</span><span class="n">updates</span> <span class="mi">4000</span> <span class="o">--</span><span class="n">warmup</span><span class="o">-</span><span class="n">init</span><span class="o">-</span><span class="n">lr</span> <span class="s">'1e-07'</span> \
+  <span class="o">--</span><span class="n">adam</span><span class="o">-</span><span class="n">betas</span> <span class="s">'(0.9, 0.98)'</span> <span class="o">--</span><span class="n">save</span><span class="o">-</span><span class="nb">dir</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">yzp</span><span class="o">-</span><span class="mi">2</span>
+</code></pre></div></div>
+
+:ET

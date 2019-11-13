@@ -1,0 +1,85 @@
+I"�<p>之前还一直在研究怎么用Github page来做博客，后来发现Hexo方便快捷，集成度很高，不需要很多Git操作。</p>
+
+<h1 id="配置环境">配置环境</h1>
+<p>参考<a href="https://hexo.io/zh-cn/docs/">Hexo文档</a>，下面说都是Mac的操作方法，Windows的安装方法文档里也有详细的说明。</p>
+
+<h2 id="安装流程">安装流程</h2>
+<p>先安装Git：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>brew <span class="nb">install </span>git
+</code></pre></div></div>
+<p>再安装Node.js，这里推荐通过nvm来安装。nvm是管理node版本的工具：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>wget <span class="nt">-qO-</span> https://raw.github.com/creationix/nvm/master/install.sh | sh
+</code></pre></div></div>
+<p>完成后重启终端，再安Node.js，安装稳定版本：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>nvm <span class="nb">install </span>stable
+</code></pre></div></div>
+<p>最后装Hexo就好啦：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>npm <span class="nb">install</span> <span class="nt">-g</span> hexo-cli
+</code></pre></div></div>
+<h2 id="踩到的坑">踩到的坑</h2>
+<p>首先在Mac下上面的每条指令都需要管理员权限来执行。</p>
+
+<p>按照上面的流程安装完成后，在终端不关闭的前提下都可以顺利的进行Hexo操作，但是关闭终端再重启后，执行Hexo或nvm等指令，都会报错Command not found。在每次重新打开Shell后执行下面命令可以解决：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">source</span> ~/.nvm/nvm.sh
+</code></pre></div></div>
+<p>但是这样每次重启终端都要执行一遍，很麻烦。将它添加到<code class="highlighter-rouge">~/.profile</code>文件中即可，这个文件在Shell启动时会自动执行，但这样操作以后每次打开Shell会小卡顿一下，有点不爽。
+<code class="highlighter-rouge">~/.bashrc</code>中其实已经自动添加了关于nvm和hexo环境变量的语句，但是不知道为什么不起作用。</p>
+
+<h1 id="部署站点">部署站点</h1>
+
+<h2 id="初始化">初始化</h2>
+<p>首先自己新建一个文件夹，并在这个文件夹下执行初始化语句，Hexo会在当前文件夹下初始化网站。</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>hexo init
+<span class="nv">$ </span>npm <span class="nb">install</span>
+</code></pre></div></div>
+
+<h2 id="找喜欢的theme">找喜欢的theme</h2>
+<p>自己写一个theme好像有点麻烦，网上有很多开源且美观的模板，比如<a href="https://hexo.io/themes/">Hexo官方的一系列Theme</a>和<a href="https://github.com/hexojs/hexo/wiki/Themes">一个收集Theme的项目</a>。或者在平常看到自己喜欢的Github博客后，去其仓库翻一翻配置文件，一般会找到来源的。一些模板可能需要安装一些前端的插件，跟着文档来就可以。</p>
+
+<p>选好的theme后，在刚才建立的文件夹下执行：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>git clone &lt;repository&gt; themes/&lt;theme-name&gt;
+</code></pre></div></div>
+<p>这样主题就会保存在<code class="highlighter-rouge">themes/&lt;theme-name&gt;</code>下面。修改根目录下的<code class="highlighter-rouge">_config.yml</code>中的<code class="highlighter-rouge">theme-name</code>参数来选择你的模板，修改<code class="highlighter-rouge">themes/&lt;theme-name&gt;/_config.yml</code>来配置你的模板中的相关参数。</p>
+
+<h2 id="本地查看站点">本地查看站点</h2>
+
+<p>在根目录下执行下面两条命令，创建站点并可在浏览器中输入<code class="highlighter-rouge">localhost:4000</code>中查看，注意第二条指令要保持执行才可以查看。</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>hexo generate
+<span class="nv">$ </span>hexo server
+</code></pre></div></div>
+
+<h2 id="部署到github">部署到Github</h2>
+
+<h3 id="修改配置文件">修改配置文件</h3>
+<p>首先在自己的Github建立一个仓库用来存放自己的Page，这里注意一般将这个仓库命名为<code class="highlighter-rouge">yourname.github.io</code>，复制其SSH地址。修改根目录下的<code class="highlighter-rouge">_config.yml</code>文件，注意每个冒号后面要有一个空格。与部署有关的部分在文件的末尾：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Deployment</span>
+<span class="c">## Docs: https://hexo.io/docs/deployment.html</span>
+deploy:
+  <span class="nb">type</span>: git
+  repo: http://github.com/xxx/xxx.github.io.git<span class="o">(</span>即刚才的SSH地址<span class="o">)</span>
+  branch: master
+</code></pre></div></div>
+
+<h3 id="安装插件并部署">安装插件并部署</h3>
+<p>有专门的将Hexo部署到Github的工具，非常方便：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>npm <span class="nb">install </span>hexo-deployer-git <span class="nt">--save</span>
+</code></pre></div></div>
+<p>这样所有工作都完成了，每次修改之后的部署流程：</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>hexo generate
+<span class="nv">$ </span>hexo server
+<span class="nv">$ </span>hexo deploy
+</code></pre></div></div>
+<p>分别生成修改之后的站点，再在本地查看一下是不是正确，最后部署就好啦。</p>
+
+<h1 id="发布文章">发布文章</h1>
+<p>文章是用Markdown格式来写的，语法很简单边写边学就可以。</p>
+
+<h2 id="配置sublime">配置Sublime</h2>
+<p>新建文件保存为<code class="highlighter-rouge">.md</code>格式以后可以自动高亮关键词。
+在Sublime的<code class="highlighter-rouge">Package Control</code>中输入<code class="highlighter-rouge">install</code>，选择<code class="highlighter-rouge">Package Control: install package</code>。
+安装<code class="highlighter-rouge">Markdown Preview</code>这个插件，安装完成后快捷键Command+Shift+P，搜索mdp（简写），并选择下面的markdown，会自动在浏览器中打开一个预览界面。</p>
+
+<h2 id="发布到网站">发布到网站</h2>
+<p>将<code class="highlighter-rouge">.md</code>文件保存到<code class="highlighter-rouge">&lt;your-site&gt;/source/_posts</code>，按照发布网站的流程来就完成啦！</p>
+
+:ET

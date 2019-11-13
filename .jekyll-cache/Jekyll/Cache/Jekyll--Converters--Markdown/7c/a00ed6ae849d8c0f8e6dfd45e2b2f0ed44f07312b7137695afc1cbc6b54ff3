@@ -1,0 +1,162 @@
+I"�"<p>First of all, this paper is not about generative model. Jump out of VAE.</p>
+
+<h2 id="multi-aspect-task">Multi-aspect Task</h2>
+
+<p>Usually a document consists of several sentences describing one or more aspects. Document-level multi-aspect sentiment classification(DMSC) aims to predict the sentiment polarity for each aspect.</p>
+
+<p>In this paper, authors introduce a weakly supervised approach to dealing with insufficient labeled data. Opinion-target word pairs of different aspects are extracted from document.</p>
+
+<h2 id="针对的问题">针对的问题</h2>
+
+<p>There is not sufficient labeled data in aspect-level annotations, making unsupervised/weakly-supervised necessary.</p>
+
+<h2 id="现存的方法">现存的方法</h2>
+
+<ol>
+  <li>Existing weakly supervised methods use <strong>overall polarities(a weighted sum of all aspect polarities)</strong> instead of aspect polarities as “supervision”, which could not estimate a paticular rare aspect.</li>
+  <li>These approaches assume the document is a BOW, which neglects the order of words.</li>
+</ol>
+
+<h2 id="改进的思路">改进的思路</h2>
+
+<ol>
+  <li>Use target-opinion word paris as “supervision”. For example “bed-spacious”, the polarity tends to be positive for aspect “bed”. Introduce the sentiment polarity as the latent variable.</li>
+  <li>Use a deep neural network architecture to extract document representation instead of BOW.</li>
+</ol>
+
+<h2 id="model">Model</h2>
+
+<p>The ultimate goal is to learn a classifier that predicts the sentiment polarity of multi-aspects given a document(which is now a sub-task in the experiment).</p>
+
+<p>Authors achieve this goal by accomplishing another relevant objective: to predict an opinion word given a target word. Specifically, the opinion word prediction task is decomposed into 2 parts:</p>
+
+<ul>
+  <li>Predict the sentiment polarity of a certain aspect given a document</li>
+  <li>Predict the opinion word based on the target word and the predicted sentiment polarity in first step.</li>
+</ul>
+
+<blockquote>
+  <p>By introducing a latent variable, i.e., the sentiment polarity of an aspect, to the opinion word prediction objective, we can inject the polarity classification goal (the first sub-task) into the objective via the variational lower bound which also incorporates the second sub-task.</p>
+</blockquote>
+
+<p>The above words indicate that predicting opinion words is not the primary objective, but we could learn a good polarity classifier through the two-stage training method. Because the second task relies on the polarity predicted in the first task, requiring it to be accurate.</p>
+
+<p>⚠️The reason authors regard the ultimate goal(polarity) as a latent variable is that the supervised (document-polarity) data is insufficient. But we could instead extract sufficient target-opinion words as end-to-end training data, making our polarity classifier as a by-product.</p>
+
+<h3 id="sentiment-polartiy-classifier">Sentiment Polartiy Classifier</h3>
+
+<script type="math/tex; mode=display">q \left( R _ { a } = r _ { a } | \mathbf { x } \right) = \frac { \exp \left( \mathbf { w } _ { r _ { a } } ^ { T } \mathbf { x } \right) } { \sum _ { r _ { a } ^ { \prime } } \exp \left( \mathbf { w } _ { r _ { a } ^ { \prime } } ^ { T } \mathbf { x } \right) }</script>
+
+<h3 id="opinion-word-classifier">Opinion Word Classifier</h3>
+
+<script type="math/tex; mode=display">p \left( w _ { o } | r _ { a } , w _ { t } \right) = \frac { \exp \left( \varphi \left( w _ { o } , w _ { t } , r _ { a } \right) \right) } { \sum _ { w _ { o } ^ { \prime } } \exp \left( \varphi \left( w _ { o } ^ { \prime } , w _ { t } , r _ { a } \right) \right) }</script>
+
+<p>Use the negative sampling technique to <strong>approximate</strong> the opinion word classifier.
+<script type="math/tex">\log \sigma \left( \varphi \left( w _ { o } , w _ { t } , r _ { a } \right) \right) + \sum _ { w _ { o } ^ { \prime } \in \mathcal { N } } \log \sigma \left( - \varphi \left( w _ { o } ^ { \prime } , w _ { t } , r _ { a } \right) \right)</script></p>
+
+<h3 id="objective">Objective</h3>
+
+<p>Given the above two classifier, we could derive the objective as follows:</p>
+
+<p><img src="/img/eq1.png" alt="" /></p>
+
+<p>Notice that $r_a$ is the latent variable.</p>
+
+<ol>
+  <li>Inject the latent variable into the objective.</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td>Introduce the training flow(r</td>
+          <td>x), combine the sub-models.</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+  <li>Jensen’s Inequation. Note that the term on RHS of line 4 can be regarded as a KL term.</li>
+  <li>This transformation can be applied to any KL divergency.</li>
+  <li>ra is indepent of wt.</li>
+  <li>Assume that the sentiment polarity Ra follows a uniform distribution, which means p(ra) is a constant.</li>
+</ol>
+
+<p>The ultimate objective is:
+<script type="math/tex">\mathbb { E } _ { q \left( R _ { a } | \mathbf { x } \right) } \left[ \log p \left( w _ { o } | r _ { a } , w _ { t } \right) \right] + H \left( q \left( R _ { a } | \mathbf { x } \right) \right)</script></p>
+
+<h2 id="概率公式推导和模型构造之间的关系">概率公式推导和模型构造之间的关系</h2>
+
+<h3 id="条件概率">条件概率</h3>
+
+<table>
+  <tbody>
+    <tr>
+      <td>条件概率用的最多，因为以x为输入的神经网络可以看作P(y</td>
+      <td>x)，但是如何得到这个分布呢？</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>对于<strong>参数化</strong>的分布族我们可以通过网络输出得到分布的参数从而构造这个分布。而本文中的<strong>离散分布</strong>可以直接通过网络输出+softmax得到一个离散分布。离散分布也是参数化的分布。</p>
+
+<h3 id="期望">期望</h3>
+
+<p>有了分布，可进行采样来近似得到期望。但注意采样是不可BP的，所以针对高斯分布（或其他由均值和方差为参数的参数化分布族）有reparameterization的方法来支持BP。</p>
+
+<p>但是不是所有的期望都是通过采样来模拟的。本文中ra服从简单的伯努利分布，所以可以直接精确求解这个期望。</p>
+
+<h3 id="损失和模型">损失和模型</h3>
+
+<table>
+  <tbody>
+    <tr>
+      <td>VAE中由P(X</td>
+      <td>z)得到了损失中的重构项，这是因为推导的公式里有logP(X</td>
+      <td>z)这一项，而P刚好又是高斯分布，所以损失的最终化简为均值（网络输出）和真实样本X之间的欧拉距离的形式。这个的成立完全取决于生成模型符合高斯分布这个假设。我们在训练过程中，根据样本得到z分布的均值和方差，通过采样法来求解均值，最终根据生成模型得到的均值，即网络输出来算出误差，反向传播。</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>本文中并没有高斯分布的假设，但Polarity的分布是一个伯努利二项分布，也属于参数化分布，所以使用网络+softmax模拟出ra的真实分布。由于是离散的，期望也可以用累加的形式简单求出，opinion word prediction模型中wo符合的分布也是一个在词表上的离散分布，可直接求出概率值。</p>
+
+<p>intracble的意思是表达式未知，程序里写不出来。</p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>所以从我们想要优化的目标入手，VAE中想最大化积分P(X</td>
+      <td>z)P(z)，然后经过一系列的化简，近似，得到了最终的ELBO，我们根据ELBO中的每一项，设计模型以求解这个ELBO，最后优化模型就是让ELBO变大。从损失中看出模型应该怎么搭。</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <tbody>
+    <tr>
+      <td>本文也是，从损失中看出了先要从x中得到ra，再根据ra和wt预测wo，再加上个熵。所以模型的搭建也是这样的。但是为什么损失会从logp(w0</td>
+      <td>wt)往这个方向化简呢？为什么插入ra等，这是最初的想要利用弱监督的想法得来的，所以总体思路：</td>
+    </tr>
+  </tbody>
+</table>
+
+<ol>
+  <li>有了想法，从原理上想怎么搭建这个模型。</li>
+  <li>从最初的损失入手，引入我们想要引入的东西，例如ra，x等。</li>
+  <li>化简损失，找到如何使用新引入的一系列参数，去完成最初损失的优化。</li>
+</ol>
+
+<h2 id="问题">问题</h2>
+
+<p>每一个概率q p 都会用网络/方法（softmax）构造出来。</p>
+
+<p>主要思路是插入一个中间变量，做隐变量，这种方法可以称为变分。</p>
+
+<h2 id="想法">想法</h2>
+
+<ol>
+  <li>softmax类型的公式，分母遍历变量，找最好的</li>
+  <li>负采样的近似方法</li>
+  <li>labeled样本不足时，以label为隐变量。</li>
+  <li>vae的jensen怎么用的</li>
+  <li>这不是一个生成模型，而是一种variational的方法</li>
+</ol>
+:ET
