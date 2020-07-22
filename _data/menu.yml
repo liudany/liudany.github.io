@@ -4,8 +4,8 @@
 - title: "Publications"
   href: "/research/"
 
-- title: "Blog"
-  href: "/blog/"
+#- title: "Blog"
+#  href: "/blog/"
 
 - title: "CV"
   href: "/cv/"

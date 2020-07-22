@@ -219,7 +219,7 @@ AACL 微博abuse在线监测
 | Copenhagen   TALENT 4th |            | Feb. 13    2020 |              | CV, Project description, motivation letter                   | [Faculty](https://employment.ku.dk/phd/?show=149792), [date](https://talent.ku.dk/calls-and-deadlines/) |
 | Max-planck-institute    |            | Nov. 2019       | Feb. 2020    |                                                              | [IMPRS-CS](https://www.imprs-cs.de/program-overview/)        |
 | UBC                     |            | Dec. 15         |              |                                                              |                                                              |
-| UCL                     |            |                 |              |                                                              |                                                              |
+| UCL                     |            |                 |              | [CDT](https://www.ucl.ac.uk/ai-centre/study/cdt-foundational-ai/applying-research-degree-artificial-intelligence) |                                                              |
 
 备胎：
 

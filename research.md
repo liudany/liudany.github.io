@@ -25,7 +25,7 @@ title: Publications
 		<b>A Character-Centric Neural Model for Automated Story Generation</b><br>
 		<i><b>Danyang Liu</b>, Juntao Li, Meng-Hsuan Yu, Dongyan Zhao, Rui Yan</i><br>
 		Thirty-Fourth AAAI Conference on Artificial Intelligence (AAAI 2020), New York, USA.<br>
-		<a href="character-aaai2020.pdf"><div class="color-button">pdf</div></a>
+		<!-- <a href="character-aaai2020.pdf"><div class="color-button">pdf</div></a> -->
 	</li><br>
 	<li>
 		<b>Draft and Edit: Automatic Storytelling Through Multi-Pass Hierarchical Conditional Variational Autoencoder</b><br>
@@ -36,7 +36,7 @@ title: Publications
 		<b>A Transformer-Based Variational Auto Encoder for Sentence Generation</b><br>
 		<i><b>Danyang Liu</b> and Gongshen Liu</i><br>
 		International Joint Conference on Neural Networks (IJCNN 2019), Budapest, Hungary.<br>
-		<a href="N-19705.pdf"><div class="color-button">pdf</div></a>
+		<!-- <a href="N-19705.pdf"><div class="color-button">pdf</div></a> -->
 	</li><br>
 <!-- 	<li>
 		<b>AUG-BERT: An Efficient Data Augmentation Algorithm for Text Classification</b><br>
