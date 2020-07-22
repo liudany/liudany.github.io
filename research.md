@@ -52,7 +52,14 @@ title: Publications
 </ul>
 
 <h2>Graduation Thesis</h2>
-<ul>
+<ul>	
+	<li>
+		<b>Variational Autoencoder-Based Text Generation (基于变分自动编码器的文本生成技术研究)</b><br>
+		<i><b>Danyang Liu</b> and Gongshen Liu </i><br>
+		Graduation Thesis in Shanghai Jiao Tong University, Shanghai, China. <br>
+		<!-- <b><font color="red">Excellent Graduation Project(5%)</font></b><br /> -->
+		<!-- <a href="基于启动时网络流量的安卓应用识别.pdf"><div class="color-button">pdf (Chinese)</div></a> -->
+	</li><br>
 	<li>
 		<b>Identify Android Applications Using Launch Time Traffic (基于启动时流量的Android应用识别)</b><br>
 		<i><b>Danyang Liu</b> and Zhongyuan Qin </i><br>
@@ -60,4 +67,5 @@ title: Publications
 		<b><font color="red">Excellent Graduation Project(5%)</font></b><br />
 		<a href="基于启动时网络流量的安卓应用识别.pdf"><div class="color-button">pdf (Chinese)</div></a>
 	</li><br>
+
 </ul>
